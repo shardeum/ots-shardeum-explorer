@@ -295,6 +295,7 @@ export const useTxData = (
           data: _response.data,
           maxFeePerBlobGas: _response.maxFeePerBlobGas ?? undefined,
           blobVersionedHashes: _response.blobVersionedHashes ?? undefined,
+          timestamp: (_response as any).timestamp ? Math.floor((_response as any).timestamp / 1000) : undefined,
           confirmedData:
             _receipt === null
               ? undefined
@@ -302,7 +303,6 @@ export const useTxData = (
                   status: _receipt.status === 1,
                   blockNumber: _receipt.blockNumber,
                   transactionIndex: _receipt.index,
-                  // TODO: Does awaiting this Promise induce another RPC call?
                   confirmations: await _receipt.confirmations(),
                   createdContractAddress: _receipt.contractAddress ?? undefined,
                   fee,
@@ -370,7 +370,7 @@ export const useInternalOperations = (
   );
 
   const _transfers = useMemo(() => {
-    if (provider === undefined || error || data === undefined) {
+    if (provider === undefined || error || data === undefined || !Array.isArray(data)) {
       return undefined;
     }
 

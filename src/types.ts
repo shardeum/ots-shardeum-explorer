@@ -51,6 +51,7 @@ export type TransactionData = {
   maxFeePerBlobGas?: bigint | undefined;
   blobVersionedHashes?: string[] | undefined;
   confirmedData?: ConfirmedTransactionData | undefined;
+  timestamp?: number;
 };
 
 export type ConfirmedTransactionData = {

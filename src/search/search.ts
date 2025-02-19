@@ -23,26 +23,72 @@ import { ProcessedTransaction, TransactionChunk } from "../types";
 import { formatter } from "../utils/formatter";
 
 export const rawToProcessed = (provider: JsonRpcApiProvider, _rawRes: any) => {
-  const _res: TransactionResponse[] = _rawRes.txs.map(
-    (t: any) =>
-      new TransactionResponse(formatter.transactionResponse(t), provider),
+  console.log("[rawToProcessed] Raw response:", _rawRes);
+
+  // Add required fields to match ethers.js TransactionResponse format
+  const enrichedTxs = _rawRes.txs.map((tx: any) => {
+    const gasLimit = tx.gas || tx.gasLimit || "0x5208";
+    return {
+      ...tx,
+      type: tx.type ?? 0,
+      chainId: provider._network.chainId,
+      nonce: tx.nonce ?? 0,
+      data: tx.input ?? "0x",
+      gasLimit,
+      maxFeePerGas: tx.maxFeePerGas ?? null,
+      maxPriorityFeePerGas: tx.maxPriorityFeePerGas ?? null,
+      r: tx.r ?? "0x0000000000000000000000000000000000000000000000000000000000000000",
+      s: tx.s ?? "0x0000000000000000000000000000000000000000000000000000000000000000",
+      v: tx.v ?? 27,
+      transactionIndex: tx.transactionIndex ?? "0x0",
+      blockNumber: tx.blockNumber,
+      hash: tx.hash,
+      from: tx.from,
+      to: tx.to,
+      value: tx.value,
+      gasPrice: tx.gasPrice,
+      timestamp: tx.timestamp
+    };
+  });
+
+  const _res: TransactionResponse[] = enrichedTxs.map(
+    (tx: any) => new TransactionResponse(formatter.transactionResponse(tx), provider)
   );
 
   return {
     txs: _res.map((t, i): ProcessedTransaction => {
-      const _rawReceipt = _rawRes.receipts[i];
-      const _receipt: TransactionReceiptParams =
-        formatter.transactionReceiptParams(_rawReceipt);
+      const _rawReceipt = _rawRes.receipts[i] || {};
+      const enrichedReceipt = {
+        to: _rawReceipt.to || t.to,
+        from: _rawReceipt.from || t.from,
+        contractAddress: _rawReceipt.contractAddress,
+        transactionIndex: _rawReceipt.transactionIndex || t.index,
+        gasUsed: _rawReceipt.gasUsed || t.gasLimit,
+        logsBloom: _rawReceipt.logsBloom || "0x",
+        blockHash: _rawReceipt.blockHash || "0x0000000000000000000000000000000000000000000000000000000000000000",
+        transactionHash: t.hash,
+        logs: _rawReceipt.logs || [],
+        blockNumber: _rawReceipt.blockNumber || t.blockNumber,
+        confirmations: _rawReceipt.confirmations || 0,
+        cumulativeGasUsed: _rawReceipt.cumulativeGasUsed || _rawReceipt.gasUsed || t.gasLimit,
+        effectiveGasPrice: _rawReceipt.effectiveGasPrice || t.gasPrice,
+        status: _rawReceipt.status ?? 1,
+        type: t.type,
+        byzantium: true
+      };
+
+      const _receipt = formatter.transactionReceiptParams(enrichedReceipt);
 
       let fee: bigint;
       let gasPrice: bigint;
+      
       if (isOptimisticChain(provider._network.chainId)) {
         const l1Fee: bigint = formatter.bigInt(_rawReceipt.l1Fee ?? 0n);
         ({ fee, gasPrice } = getOpFeeData(
           t.type,
           t.gasPrice!,
           _receipt.gasUsed,
-          l1Fee,
+          l1Fee
         ));
       } else {
         fee = _receipt.gasUsed * t.gasPrice!;
@@ -51,7 +97,7 @@ export const rawToProcessed = (provider: JsonRpcApiProvider, _rawRes: any) => {
 
       return {
         blockNumber: t.blockNumber!,
-        timestamp: formatter.number(_rawReceipt.timestamp),
+        timestamp: Math.floor((enrichedTxs[i].timestamp ?? _rawReceipt.timestamp ?? 0) / 1000),
         idx: _receipt.index,
         hash: t.hash,
         type: t.type,
@@ -62,11 +108,11 @@ export const rawToProcessed = (provider: JsonRpcApiProvider, _rawRes: any) => {
         fee,
         gasPrice,
         data: t.data,
-        status: _receipt.status!,
+        status: _receipt.status!
       };
     }),
     firstPage: _rawRes.firstPage,
-    lastPage: _rawRes.lastPage,
+    lastPage: _rawRes.lastPage
   };
 };
 
@@ -99,12 +145,18 @@ export class SearchController {
     address: string,
     baseBlock: number,
   ): Promise<TransactionChunk> {
-    const _rawRes = await provider.send("ots_searchTransactionsBefore", [
-      address,
-      baseBlock,
-      PAGE_SIZE,
-    ]);
-    return rawToProcessed(provider, _rawRes);
+    try {
+      const _rawRes = await provider.send("ots_searchTransactionsBefore", [
+        address,
+        baseBlock,
+        PAGE_SIZE,
+      ]);
+      const processed = rawToProcessed(provider, _rawRes);
+      return processed;
+    } catch (error) {
+      console.error("[SearchController] Error reading back page:", error);
+      throw error;
+    }
   }
 
   private static async readForwardPage(
@@ -124,14 +176,20 @@ export class SearchController {
     provider: JsonRpcApiProvider,
     address: string,
   ): Promise<SearchController> {
-    const newTxs = await SearchController.readBackPage(provider, address, 0);
-    return new SearchController(
-      address,
-      newTxs.txs,
-      newTxs.firstPage,
-      newTxs.lastPage,
-      true,
-    );
+    try {
+      const newTxs = await SearchController.readBackPage(provider, address, 0);
+      return new SearchController(
+        address,
+        newTxs.txs,
+        newTxs.firstPage,
+        newTxs.lastPage,
+        true,
+      );
+      
+    } catch (error) {
+      console.error("[SearchController] Error loading first page:", error);
+      throw error;
+    }
   }
 
   static async middlePage(
