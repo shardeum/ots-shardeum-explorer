@@ -8,7 +8,7 @@ import { useEffect, useState } from "react";
 import { MIN_API_LEVEL } from "./params";
 import { ConnectionStatus } from "./types";
 
-export const DEFAULT_ERIGON_URL = "http://127.0.0.1:8545";
+export const DEFAULT_ERIGON_URL = import.meta.env.VITE_ERIGON_URL || "http://127.0.0.1:8545";
 
 export const useProvider = (
   erigonURL?: string,
