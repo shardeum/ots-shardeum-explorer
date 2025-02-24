@@ -18,7 +18,7 @@ const NativeTokenPrice: FC<NativeTokenPriceProps> = ({ blockTag }) => {
     nativeCurrency: { symbol, decimals },
   } = useChainInfo();
 
-  // One unit of native token, considering decimals
+  // One unit of native token (SHM), considering decimals
   const nativeTokenPrice = useFiatValue(10n ** BigInt(decimals), blockTag);
   const value = formatFiatValue(nativeTokenPrice);
 

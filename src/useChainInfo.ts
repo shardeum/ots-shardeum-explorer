@@ -2,7 +2,7 @@ import { createContext, useContext } from "react";
 import { Fetcher } from "swr";
 import useSWRImmutable from "swr/immutable";
 import { chainInfoURL } from "./url";
-import { ChainInfo, defaultChainInfo } from "./useConfig";
+import { ChainInfo } from "./useConfig";
 import { OtterscanRuntime } from "./useRuntime";
 
 export const ChainInfoContext = createContext<ChainInfo | undefined>(undefined);
@@ -55,4 +55,15 @@ export const useChainInfo = (): ChainInfo => {
     throw new Error("no chain info");
   }
   return chainInfo;
+};
+
+export const defaultChainInfo: ChainInfo = {
+  name: "Shardeum Sphinx",
+  nativeCurrency: {
+    name: "Shardeum",
+    symbol: "SHM",
+    decimals: 18,
+  },
+  faucets: [],
+  // ... other chain specific configurations ...
 };

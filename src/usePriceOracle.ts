@@ -17,9 +17,18 @@ import {
   TokenPriceResolver,
 } from "./api/token-price-resolver/token-price-resolver";
 import { ChecksummedAddress } from "./types";
-import { type PriceOracleInfo } from "./useConfig";
 import { RuntimeContext } from "./useRuntime";
 import { commify } from "./utils/utils";
+import { type PriceOracleInfo as BasePriceOracleInfo } from "./useConfig";
+
+interface PriceOracleInfo extends BasePriceOracleInfo {
+  nativeTokenPrice?: {
+    ethUSDOracleAddress: string;
+    ethUSDOracleDecimals: number;
+    shmUSDOracleAddress?: string;
+    shmUSDOracleDecimals?: number;
+  };
+}
 
 const FEED_REGISTRY_MAINNET: ChecksummedAddress =
   "0x47Fb2585D2C56Fe188D0E6ec628a38b74fCeeeDf";
@@ -43,10 +52,26 @@ const tokenEquivMap = new Map<
   ],
 ]);
 
-const defaultPriceOracleInfo: Map<bigint, PriceOracleInfo> = new Map<
-  bigint,
-  PriceOracleInfo
->([
+interface NativeTokenPriceInfo {
+  ethUSDOracleAddress?: string;
+  ethUSDOracleDecimals?: number;
+  shmUSDOracleAddress?: string;
+  shmUSDOracleDecimals?: number;
+}
+
+interface PriceOracleConfig {
+  nativeTokenPrice?: NativeTokenPriceInfo;
+  wrappedEthAddress?: string;
+  wrappedShmAddress?: string;
+  uniswapV2?: {
+    factoryAddress: string;
+  };
+  uniswapV3?: {
+    factoryAddress: string;
+  };
+}
+
+const defaultPriceOracleInfo: Map<bigint, PriceOracleConfig> = new Map([
   [
     1n,
     {
@@ -72,6 +97,23 @@ const defaultPriceOracleInfo: Map<bigint, PriceOracleInfo> = new Map<
       },
       uniswapV3: {
         factoryAddress: "0x1F98431c8aD98523631AE4a59f267346ea31F984",
+      },
+    },
+  ],
+  [
+    8081n,
+    {
+      nativeTokenPrice: {
+        shmUSDOracleAddress: "0x...",
+        shmUSDOracleDecimals: 8,
+      },
+      wrappedEthAddress: "0x...",
+      wrappedShmAddress: "0x...",
+      uniswapV2: {
+        factoryAddress: "0x...",
+      },
+      uniswapV3: {
+        factoryAddress: "0x...",
       },
     },
   ],
@@ -102,7 +144,7 @@ const FEED_REGISTRY_MAINNET_PROTOTYPE = new Contract(
 const feedRegistryFetcher =
   (
     provider: JsonRpcApiProvider | undefined,
-    priceOracleInfo: PriceOracleInfo | undefined,
+    priceOracleInfo: PriceOracleConfig | undefined,
     ethPriceData: { price: bigint | undefined; decimals: bigint },
     tokenDecimals: bigint,
   ): Fetcher<FeedRegistryFetcherData, FeedRegistryFetcherKey> =>
@@ -277,7 +319,7 @@ const ETH_USD_FEED_PROTOTYPE = new Contract(ZeroAddress, AggregatorV3Interface);
 const ethUSDFetcher =
   (
     provider: JsonRpcApiProvider | undefined,
-    priceOracleInfo: PriceOracleInfo | undefined,
+    priceOracleInfo: PriceOracleConfig | undefined,
   ): Fetcher<any | undefined, ["ethusd", BlockTag | undefined]> =>
   async ([_, blockTag]) => {
     if (
@@ -323,21 +365,21 @@ export const useETHUSDOracle = (
  * Converts a certain amount of ETH to fiat using an oracle
  */
 export const useFiatValue = (
-  ethAmount: bigint,
+  shmAmount: bigint,
   blockTag: BlockTag | undefined,
 ) => {
   const { config, provider } = useContext(RuntimeContext);
-  const { price: ethPrice, decimals: ethPriceDecimals } = useETHUSDOracle(
+  const { price: shmPrice, decimals: shmPriceDecimals } = useSHMUSDOracle(
     provider,
     blockTag,
   );
 
-  if (ethAmount === 0n || ethPrice === undefined) {
+  if (shmAmount === 0n || shmPrice === undefined) {
     return undefined;
   }
 
   return FixedNumber.fromValue(
-    (ethAmount * ethPrice) / 10n ** ethPriceDecimals,
+    (shmAmount * shmPrice) / 10n ** shmPriceDecimals,
     18,
   );
 };
@@ -412,4 +454,55 @@ export const useFastGasRawOracle = (
     return undefined;
   }
   return data;
+};
+
+const shmUSDFetcherKey = (blockTag: BlockTag | undefined) => {
+  if (blockTag === undefined) {
+    return null;
+  }
+  return ["shm-usd", blockTag];
+};
+
+const SHM_USD_FEED_PROTOTYPE = new Contract(
+  ZeroAddress,
+  AggregatorV3Interface,
+);
+
+const shmUSDFetcher = (
+  provider: JsonRpcApiProvider | undefined,
+  priceOracleInfo: PriceOracleConfig | PriceOracleInfo | undefined,
+): Fetcher<any | undefined, ["shm-usd", BlockTag | undefined]> =>
+async ([_, blockTag]) => {
+  if (
+    provider === undefined ||
+    (provider?._network.chainId !== 8081n &&
+      priceOracleInfo?.nativeTokenPrice?.shmUSDOracleAddress === undefined)
+  ) {
+    return undefined;
+  }
+
+  const c = SHM_USD_FEED_PROTOTYPE.connect(provider).attach(
+    priceOracleInfo?.nativeTokenPrice?.shmUSDOracleAddress ||
+      "shm-usd.data.eth",
+  ) as Contract;
+  const priceData = await c.latestRoundData({ blockTag });
+  return priceData;
+};
+
+export const useSHMUSDOracle = (
+  provider: JsonRpcApiProvider | undefined,
+  blockTag: BlockTag | undefined,
+): { price: bigint | undefined; decimals: bigint } => {
+  const { config } = useContext(RuntimeContext);
+  const priceOracleInfo = (config?.priceOracleInfo ?? (provider && defaultPriceOracleInfo.get(provider._network.chainId))) as PriceOracleConfig;
+  const fetcher = shmUSDFetcher(provider, priceOracleInfo);
+  const { data, error } = useSWRImmutable(shmUSDFetcherKey(blockTag), fetcher);
+  const decimals = BigInt(
+    priceOracleInfo?.nativeTokenPrice?.shmUSDOracleDecimals ?? 8
+  );
+  if (error) {
+    return { price: undefined, decimals };
+  }
+  const price = data !== undefined ? BigInt(data.answer) : undefined;
+  return { price, decimals };
 };
