@@ -1,0 +1,6 @@
+ [build]
+  command = "cp public/config.prod.json public/config.json && npm run build"
+  publish = "dist"
+
+[functions]
+  directory = "netlify/functions"

@@ -49,13 +49,14 @@ export const useProvider = (
     setConnStatus(ConnectionStatus.CONNECTING);
 
     const tryToConnect = async () => {
+      console.log("Attempting to connect to:", erigonURL);
+      
       let provider: JsonRpcApiProvider;
       if (erigonURL?.startsWith("ws://") || erigonURL?.startsWith("wss://")) {
         provider = new WebSocketProvider(erigonURL, undefined, {
           staticNetwork: true,
         });
       } else {
-        // Batching takes place by default
         provider = new JsonRpcProvider(erigonURL, undefined, {
           staticNetwork: true,
         });
@@ -64,9 +65,11 @@ export const useProvider = (
       // Check if it is at least a regular ETH node
       let blockNumber: number = 0;
       try {
+        console.log("Attempting to get block number...");
         blockNumber = await provider.getBlockNumber();
+        console.log("Successfully got block number:", blockNumber);
       } catch (err) {
-        console.log(err);
+        console.error("Failed to get block number:", err);
         setConnStatus(ConnectionStatus.NOT_ETH_NODE);
         setProvider(undefined);
         return;

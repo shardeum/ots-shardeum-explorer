@@ -1,4 +1,4 @@
 {
-  "erigonURL": "http://34.74.4.130:8090",
+  "erigonURL": "/.netlify/functions/rpc-proxy",
   "assetsURLPrefix": "https://ots-shardeum.netlify.app/"
 } 
