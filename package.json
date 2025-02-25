@@ -27,7 +27,7 @@
     "@types/react-dom": "^18.2.25",
     "chart.js": "^4.4.2",
     "cors": "^2.8.5",
-    "ethers": "^6.12.0",
+    "ethers": "^6.13.5",
     "express": "^4.18.2",
     "http-proxy-middleware": "^2.0.6",
     "node-fetch": "^2.7.0",
