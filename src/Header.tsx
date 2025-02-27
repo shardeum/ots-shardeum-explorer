@@ -32,7 +32,7 @@ const Header: FC = () => {
                 title="An otter scanning"
               />
               <span>
-                {config?.branding?.siteName || "Otterscan"}
+                {config?.branding?.siteName || "Shardeum"}
                 {config?.experimental && (
                   <span className="text-red-400">2</span>
                 )}
@@ -74,7 +74,7 @@ const Header: FC = () => {
               className="border bg-skin-button-fill px-2 py-1 text-sm text-skin-button hover:bg-skin-button-hover-fill focus:outline-none"
               type="button"
               onClick={() => setScanning(true)}
-              title="Scan an ETH address using your camera"
+              title="Scan an Shardeum address using your camera"
             >
               <FontAwesomeIcon icon={faQrcode} />
             </button>

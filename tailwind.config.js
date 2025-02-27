@@ -13,7 +13,9 @@ export default {
   theme: {
     extend: {
       colors: {
-        "link-blue": "#3498db",
+        'primary': '#3042FB',
+        'accent': '#A4FF00',
+        'link-blue': '#3042FB',
         "link-blue-hover": "#0468ab",
         "verified-contract": "#2b50aa",
         "verified-contract-hover": "#26007b",

@@ -9,11 +9,11 @@ const Footer: React.FC = () => {
       className={`w-full border-t border-t-gray-100 px-2 py-1 text-xs ${
         provider?._network.chainId === 1n
           ? "bg-link-blue text-gray-200"
-          : "bg-orange-400 text-white"
+          : "bg-primary text-white"
       } text-center`}
     >
       {provider ? (
-        <>Using Erigon node at {config?.erigonURL}</>
+        <>Shardeum Atomium {config?.erigonURL}</>
       ) : (
         <>Waiting for the provider...</>
       )}

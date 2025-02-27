@@ -58,7 +58,7 @@ export const useChainInfo = (): ChainInfo => {
 };
 
 export const defaultChainInfo: ChainInfo = {
-  name: "Shardeum Sphinx",
+  name: "Shardeum Atomium",
   nativeCurrency: {
     name: "Shardeum",
     symbol: "SHM",
