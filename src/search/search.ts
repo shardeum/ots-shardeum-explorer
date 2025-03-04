@@ -42,12 +42,13 @@ export const rawToProcessed = (provider: JsonRpcApiProvider, _rawRes: any) => {
       v: tx.v ?? 27,
       transactionIndex: tx.transactionIndex ?? "0x0",
       blockNumber: tx.blockNumber,
+      timestamp: tx.timestamp,
+      idx: tx.transactionIndex || 0,
       hash: tx.hash,
       from: tx.from,
       to: tx.to,
       value: tx.value,
       gasPrice: tx.gasPrice,
-      timestamp: tx.timestamp
     };
   });
 
@@ -117,179 +118,62 @@ export const rawToProcessed = (provider: JsonRpcApiProvider, _rawRes: any) => {
 };
 
 export class SearchController {
-  private txs: ProcessedTransaction[];
+  private currentPage: number;
+  private totalPages: number;
 
-  private pageStart: number;
-
-  private pageEnd: number;
-
-  private constructor(
-    readonly address: string,
-    txs: ProcessedTransaction[],
-    readonly isFirst: boolean,
-    readonly isLast: boolean,
-    boundToStart: boolean,
+  constructor(
+    private address: string,
+    private txs: ProcessedTransaction[],
+    private isFirstPage: boolean,
+    private isLastPage: boolean,
+    totalPages: number,
+    currentPage: number
   ) {
-    this.txs = txs;
-    if (boundToStart) {
-      this.pageStart = 0;
-      this.pageEnd = Math.min(txs.length, PAGE_SIZE);
-    } else {
-      this.pageEnd = txs.length;
-      this.pageStart = Math.max(0, txs.length - PAGE_SIZE);
-    }
+    this.totalPages = totalPages;
+    this.currentPage = currentPage;
   }
 
-  private static async readBackPage(
-    provider: JsonRpcApiProvider,
-    address: string,
-    baseBlock: number,
-  ): Promise<TransactionChunk> {
-    try {
-      const _rawRes = await provider.send("ots_searchTransactionsBefore", [
-        address,
-        baseBlock,
-        PAGE_SIZE,
-      ]);
-      const processed = rawToProcessed(provider, _rawRes);
-      return processed;
-    } catch (error) {
-      console.error("[SearchController] Error reading back page:", error);
-      throw error;
-    }
+  getCurrentPage(): number {
+    return this.currentPage;
   }
 
-  private static async readForwardPage(
-    provider: JsonRpcApiProvider,
-    address: string,
-    baseBlock: number,
-  ): Promise<TransactionChunk> {
-    const _rawRes = await provider.send("ots_searchTransactionsAfter", [
-      address,
-      baseBlock,
-      PAGE_SIZE,
-    ]);
-    return rawToProcessed(provider, _rawRes);
+  getTotalPages(): number {
+    return this.totalPages;
   }
 
-  static async firstPage(
-    provider: JsonRpcApiProvider,
-    address: string,
-  ): Promise<SearchController> {
-    try {
-      const newTxs = await SearchController.readBackPage(provider, address, 0);
-      return new SearchController(
-        address,
-        newTxs.txs,
-        newTxs.firstPage,
-        newTxs.lastPage,
-        true,
-      );
-      
-    } catch (error) {
-      console.error("[SearchController] Error loading first page:", error);
-      throw error;
-    }
+  get isFirst(): boolean {
+    return this.isFirstPage;
   }
 
-  static async middlePage(
-    provider: JsonRpcApiProvider,
-    address: string,
-    hash: string,
-    next: boolean,
-  ): Promise<SearchController> {
-    const tx = await provider.getTransaction(hash);
-    // TODO: Can we actually infer that this transaction is not null?
-    const newTxs = next
-      ? await SearchController.readBackPage(provider, address, tx!.blockNumber!)
-      : await SearchController.readForwardPage(
-          provider,
-          address,
-          tx!.blockNumber!,
-        );
-    return new SearchController(
-      address,
-      newTxs.txs,
-      newTxs.firstPage,
-      newTxs.lastPage,
-      next,
-    );
-  }
-
-  static async lastPage(
-    provider: JsonRpcApiProvider,
-    address: string,
-  ): Promise<SearchController> {
-    const newTxs = await SearchController.readForwardPage(provider, address, 0);
-    return new SearchController(
-      address,
-      newTxs.txs,
-      newTxs.firstPage,
-      newTxs.lastPage,
-      false,
-    );
+  get isLast(): boolean {
+    return this.isLastPage;
   }
 
   getPage(): ProcessedTransaction[] {
-    return this.txs.slice(this.pageStart, this.pageEnd);
+    return this.txs;
   }
 
-  async prevPage(
+  static async getPage(
     provider: JsonRpcApiProvider,
-    hash: string,
+    address: string, 
+    pageNumber: number
   ): Promise<SearchController> {
-    // Already on this page
-    if (this.txs[this.pageEnd - 1].hash === hash) {
-      return this;
-    }
+    const response = await provider.send("ots_getTransactions", [
+      address,
+      pageNumber,
+      10
+    ]);
 
-    if (this.txs[this.pageStart].hash === hash) {
-      const overflowPage = this.txs.slice(0, this.pageStart);
-      const baseBlock = this.txs[0].blockNumber;
-      const prevPage = await SearchController.readForwardPage(
-        provider,
-        this.address,
-        baseBlock,
-      );
-      return new SearchController(
-        this.address,
-        prevPage.txs.concat(overflowPage),
-        prevPage.firstPage,
-        prevPage.lastPage,
-        false,
-      );
-    }
-
-    return this;
-  }
-
-  async nextPage(
-    provider: JsonRpcApiProvider,
-    hash: string,
-  ): Promise<SearchController> {
-    // Already on this page
-    if (this.txs[this.pageStart].hash === hash) {
-      return this;
-    }
-
-    if (this.txs[this.pageEnd - 1].hash === hash) {
-      const overflowPage = this.txs.slice(this.pageEnd);
-      const baseBlock = this.txs[this.txs.length - 1].blockNumber;
-      const nextPage = await SearchController.readBackPage(
-        provider,
-        this.address,
-        baseBlock,
-      );
-      return new SearchController(
-        this.address,
-        overflowPage.concat(nextPage.txs),
-        nextPage.firstPage,
-        nextPage.lastPage,
-        true,
-      );
-    }
-
-    return this;
+    const processed = rawToProcessed(provider, response);
+    
+    return new SearchController(
+      address,
+      processed.txs,
+      pageNumber === 1,
+      processed.lastPage,
+      response.totalPages || 1,
+      pageNumber
+    );
   }
 }
 

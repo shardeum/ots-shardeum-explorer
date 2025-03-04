@@ -765,43 +765,9 @@ export const useContractCreator = (
   provider: JsonRpcApiProvider | undefined,
   address: ChecksummedAddress | undefined,
 ): ContractCreator | null | undefined => {
-  const { data, error } = useSWR<
-    ContractCreator | null | undefined,
-    any,
-    ContractCreatorKey | null
-  >(
-    provider && address
-      ? {
-          type: "cc",
-          network: provider._network.chainId,
-          address,
-        }
-      : null,
-    getContractCreatorFetcher(provider!),
-  );
-
-  if (error) {
-    return undefined;
-  }
-  return data as ContractCreator;
+  // Return null to disable the feature entirely
+  return null;
 };
-
-const getContractCreatorFetcher =
-  (provider: JsonRpcApiProvider) =>
-  async ({
-    network,
-    address,
-  }: ContractCreatorKey): Promise<ContractCreator | null | undefined> => {
-    const result = (await provider.send("ots_getContractCreator", [
-      address,
-    ])) as ContractCreator;
-
-    // Empty or success
-    if (result) {
-      result.creator = formatter.address(result.creator);
-    }
-    return result;
-  };
 
 export const useAddressBalance = (
   provider: JsonRpcApiProvider | undefined,

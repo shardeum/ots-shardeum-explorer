@@ -55,68 +55,28 @@ const AddressTransactionResults: FC<AddressAwareComponentProps> = ({
   }
 
   const [searchParams] = useSearchParams();
-  const hash = searchParams.get("h");
+  const pageParam = searchParams.get("page");
+  const currentPage = pageParam ? parseInt(pageParam) : 1;
 
   const [controller, setController] = useState<SearchController>();
+
   useEffect(() => {
     if (!provider || !address) {
       return;
     }
 
-    const readFirstPage = async () => {
-      const _controller = await SearchController.firstPage(provider, address);
-      setController(_controller);
-    };
-    const readMiddlePage = async (next: boolean) => {
-      const _controller = await SearchController.middlePage(
-        provider,
-        address,
-        hash!,
-        next,
-      );
-      setController(_controller);
-    };
-    const readLastPage = async () => {
-      const _controller = await SearchController.lastPage(provider, address);
-      setController(_controller);
-    };
-    const prevPage = async () => {
-      const _controller = await controller!.prevPage(provider, hash!);
-      setController(_controller);
-    };
-    const nextPage = async () => {
-      const _controller = await controller!.nextPage(provider, hash!);
+    const loadPage = async () => {
+      const _controller = await SearchController.getPage(provider, address, currentPage);
       setController(_controller);
     };
 
-    // Page load from scratch
-    if (direction === "first" || direction === undefined) {
-      if (!controller?.isFirst || controller.address !== address) {
-        readFirstPage();
-      }
-    } else if (direction === "prev") {
-      if (controller && controller.address === address) {
-        prevPage();
-      } else {
-        readMiddlePage(false);
-      }
-    } else if (direction === "next") {
-      if (controller && controller.address === address) {
-        nextPage();
-      } else {
-        readMiddlePage(true);
-      }
-    } else if (direction === "last") {
-      if (!controller?.isLast || controller.address !== address) {
-        readLastPage();
-      }
-    }
-  }, [provider, address, direction, hash, controller]);
+    loadPage();
+  }, [provider, address, currentPage]);
 
   const page = useMemo(() => controller?.getPage(), [controller]);
 
   const balance = useAddressBalance(provider, address);
-  const creator = useContractCreator(provider, address);
+  // const creator = useContractCreator(provider, address);
   const resolvedAddress = useResolvedAddress(provider, address);
   const resolvedName = resolvedAddress
     ? resolvedAddress[0].resolveToString(resolvedAddress[1])
@@ -144,7 +104,7 @@ const AddressTransactionResults: FC<AddressAwareComponentProps> = ({
               </div>
             )}
           </InfoRow>
-          {creator && (
+          {/* {creator && (
             <InfoRow title="Contract creator">
               <div className="flex flex-col md:flex-row divide-x-2 divide-dotted divide-gray-300">
                 <TransactionAddressWithCopy
@@ -158,7 +118,7 @@ const AddressTransactionResults: FC<AddressAwareComponentProps> = ({
                 </div>
               </div>
             </InfoRow>
-          )}
+          )} */}
           {config && config.experimental && <ProxyInfo address={address} />}
         </BlockNumberContext.Provider>
         <NavBar address={address} page={page} controller={controller} />
@@ -207,10 +167,8 @@ const NavBar: FC<NavBarProps> = ({ address, page, controller }) => (
     </div>
     <UndefinedPageControl
       address={address}
-      isFirst={controller?.isFirst}
-      isLast={controller?.isLast}
-      prevHash={page?.[0]?.hash ?? ""}
-      nextHash={page?.[page.length - 1]?.hash ?? ""}
+      currentPage={controller?.getCurrentPage() ?? 1}
+      totalPages={controller?.getTotalPages() ?? 1}
       disabled={controller === undefined}
     />
   </div>

@@ -245,22 +245,8 @@ export const useContract = (
   sourcifySource: SourcifySource,
   type: MatchType,
 ) => {
-  const sourcifySources = useSourcifySources();
-  const normalizedFilename = filename.replaceAll(/[:]/g, "_");
-  const url = sourcifySourceFile(
-    checksummedAddress,
-    networkId,
-    normalizedFilename,
-    sourcifySource,
-    type,
-    sourcifySources,
-  );
-
-  const { data, error } = useSWRImmutable(url, contractFetcher);
-  if (error) {
-    return undefined;
-  }
-  return data;
+  // Disable contract fetching
+  return undefined;
 };
 
 export const useTransactionDescription = (

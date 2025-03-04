@@ -23,12 +23,14 @@ export type ProcessedTransaction = {
   gasPrice: bigint;
   data: string;
   status: number;
+  receipt?: any;
 };
 
 export type TransactionChunk = {
   txs: ProcessedTransaction[];
   firstPage: boolean;
   lastPage: boolean;
+  totalPages: number;
 };
 
 export type TransactionDescriptionData = {

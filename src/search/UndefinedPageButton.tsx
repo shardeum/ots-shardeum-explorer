@@ -4,14 +4,16 @@ import { NavLink } from "react-router-dom";
 type UndefinedPageButtonProps = {
   address: string;
   direction: "first" | "last" | "prev" | "next";
-  hash?: string;
+  currentPage?: number;
+  totalPages?: number;
   disabled?: boolean;
 };
 
 const UndefinedPageButton: FC<PropsWithChildren<UndefinedPageButtonProps>> = ({
   address,
   direction,
-  hash,
+  currentPage = 1,
+  totalPages = 1,
   disabled,
   children,
 }) => {
@@ -23,12 +25,20 @@ const UndefinedPageButton: FC<PropsWithChildren<UndefinedPageButtonProps>> = ({
     );
   }
 
+  const getPageNumber = () => {
+    switch (direction) {
+      case "first": return 1;
+      case "prev": return currentPage - 1;
+      case "next": return currentPage + 1;
+      case "last": return totalPages;
+      default: return currentPage;
+    }
+  };
+
   return (
     <NavLink
       className="select-none rounded-lg bg-link-blue/10 px-3 py-2 text-xs text-link-blue transition-colors hover:bg-link-blue/100 hover:text-white disabled:cursor-default disabled:bg-link-blue disabled:text-gray-400"
-      to={`/address/${address}/txs/${direction}${
-        direction === "prev" || direction === "next" ? `?h=${hash}` : ""
-      }`}
+      to={`/address/${address}?page=${getPageNumber()}`}
       data-test={`nav-${direction}`}
     >
       {children}
