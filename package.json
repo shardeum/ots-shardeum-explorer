@@ -27,8 +27,8 @@
     "@types/react-dom": "^18.2.25",
     "chart.js": "^4.4.2",
     "cors": "^2.8.5",
-    "ethers": "^6.12.0",
-    "express": "^4.18.2",
+    "ethers": "^6.13.5",
+    "express": "^4.21.2",
     "http-proxy-middleware": "^2.0.6",
     "node-fetch": "^2.7.0",
     "prettier-plugin-organize-imports": "^3.2.4",
@@ -89,10 +89,10 @@
     ]
   },
   "devDependencies": {
-    "@storybook/addon-essentials": "^8.0.9",
+    "@storybook/addon-essentials": "^8.6.4",
     "@storybook/addon-interactions": "^8.0.9",
     "@storybook/addon-links": "^8.0.9",
-    "@storybook/blocks": "^8.0.9",
+    "@storybook/blocks": "^8.6.4",
     "@storybook/react": "^8.0.9",
     "@storybook/react-vite": "^8.0.9",
     "@types/cors": "^2.8.17",
@@ -114,7 +114,7 @@
     "ts-node": "^10.9.2",
     "tspeg": "^3.3.1",
     "typescript": "^5.4.5",
-    "vite": "^5.2.10",
+    "vite": "^5.4.14",
     "vite-imagetools": "^7.0.1",
     "vite-plugin-compression": "^0.5.1",
     "wrangler": "^3.52.0"
