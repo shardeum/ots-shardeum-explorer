@@ -87,9 +87,9 @@ const BlockDetails: FC<BlockDetailsProps> = ({ blockNumberOrHash }) => {
             </NavLink>{" "}
             in this block
           </InfoRow>
-          <InfoRow title="Mined by">
+          {/* <InfoRow title="Mined by">
             <DecoratedAddressLink address={block.miner} miner />
-          </InfoRow>
+          </InfoRow> */}
           <InfoRow title="Block Reward">
             <BlockReward block={block} />
           </InfoRow>

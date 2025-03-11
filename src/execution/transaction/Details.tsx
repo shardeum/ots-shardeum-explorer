@@ -217,7 +217,7 @@ const Details: FC<DetailsProps> = ({ txData }) => {
       </InfoRow>
       {txData.confirmedData && (
         <>
-          <InfoRow title="Block / Position">
+          <InfoRow title="Block">
             <div className="flex items-baseline divide-x-2 divide-dotted divide-gray-300">
               <div className="mr-3 flex items-baseline space-x-1">
                 <BlockLink blockTag={txData.confirmedData.blockNumber} />
@@ -225,7 +225,7 @@ const Details: FC<DetailsProps> = ({ txData }) => {
                   confirmations={txData.confirmedData.confirmations}
                 />
               </div>
-              {block && (
+              {/* {block && (
                 <div className="flex items-baseline space-x-2 pl-3">
                   <RelativePosition
                     pos={txData.confirmedData.transactionIndex}
@@ -248,7 +248,7 @@ const Details: FC<DetailsProps> = ({ txData }) => {
                     />
                   </div>
                 </div>
-              )}
+              )} */}
             </div>
           </InfoRow>
           <InfoRow title="Timestamp">
@@ -256,13 +256,13 @@ const Details: FC<DetailsProps> = ({ txData }) => {
           </InfoRow>
         </>
       )}
-      <InfoRow title="From / Nonce">
+      <InfoRow title="From ">
         <div className="flex divide-x-2 divide-dotted divide-gray-300">
           <TransactionAddressWithCopy address={txData.from} />
-          <div className="ml-3 flex items-baseline pl-3">
+          {/* <div className="ml-3 flex items-baseline pl-3">
             <Nonce value={txData.nonce} />
             <NavNonce sender={txData.from} nonce={txData.nonce} />
-          </div>
+          </div> */}
         </div>
       </InfoRow>
       <InfoRow title={txData.to ? "Interacted With (To)" : "Contract Created"}>
