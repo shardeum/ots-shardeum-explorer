@@ -6,11 +6,12 @@ import { isAddress } from "ethers";
 import React from "react";
 import { useNavigate } from "react-router-dom";
 
-type CameraScannerProps = {
-  turnOffScan: () => void;
-};
+export interface CameraScannerProps {
+  onClose: () => void;
+  onScan: (result: string) => void;
+}
 
-const CameraScanner: React.FC<CameraScannerProps> = ({ turnOffScan }) => {
+const CameraScanner: React.FC<CameraScannerProps> = ({ onClose, onScan }) => {
   const navigate = useNavigate();
 
   const evaluateScan: OnResultFunction = (result, error, codeReader) => {
@@ -24,7 +25,7 @@ const CameraScanner: React.FC<CameraScannerProps> = ({ turnOffScan }) => {
       }
 
       navigate(`/search?q=${text}`);
-      turnOffScan();
+      onScan(text);
     }
   };
 
@@ -32,7 +33,7 @@ const CameraScanner: React.FC<CameraScannerProps> = ({ turnOffScan }) => {
     <Dialog
       className="fixed inset-0 z-10 overflow-y-auto"
       open={true}
-      onClose={turnOffScan}
+      onClose={onClose}
     >
       <div className="flex min-h-screen items-center justify-center">
         <Dialog.Overlay className="fixed inset-0 bg-black opacity-30" />

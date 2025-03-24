@@ -25,8 +25,25 @@ import { formatter } from "../utils/formatter";
 export const rawToProcessed = (provider: JsonRpcApiProvider, _rawRes: any) => {
   console.log("[rawToProcessed] Raw response:", _rawRes);
 
+  // Filter out test transactions before processing
+  const filteredTxs = _rawRes.txs.filter((tx: any) => {
+    const isTestTransaction = 
+      tx.from === "1000000000000000000000000000000000000000000000000000000000000001" &&
+      tx.to === "1000000000000000000000000000000000000000000000000000000000000001";
+    return !isTestTransaction;
+  });
+
+  // Filter corresponding receipts
+  const filteredReceipts = _rawRes.receipts.filter((_: any, i: number) => {
+    const tx = _rawRes.txs[i];
+    const isTestTransaction = 
+      tx.from === "1000000000000000000000000000000000000000000000000000000000000001" &&
+      tx.to === "1000000000000000000000000000000000000000000000000000000000000001";
+    return !isTestTransaction;
+  });
+
   // Add required fields to match ethers.js TransactionResponse format
-  const enrichedTxs = _rawRes.txs.map((tx: any) => {
+  const enrichedTxs = filteredTxs.map((tx: any) => {
     const gasLimit = tx.gas || tx.gasLimit || "0x5208";
     return {
       ...tx,
@@ -43,12 +60,12 @@ export const rawToProcessed = (provider: JsonRpcApiProvider, _rawRes: any) => {
       transactionIndex: tx.transactionIndex ?? "0x0",
       blockNumber: tx.blockNumber,
       timestamp: tx.timestamp,
-      idx: tx.transactionIndex || 0,
+      idx: typeof tx.transactionIndex === 'string' ? parseInt(tx.transactionIndex, 16) : tx.transactionIndex || 0,
       hash: tx.hash,
       from: tx.from,
       to: tx.to,
-      value: tx.value,
-      gasPrice: tx.gasPrice,
+      value: BigInt(tx.value),
+      gasPrice: BigInt(tx.gasPrice || '0x0'),
     };
   });
 
@@ -58,21 +75,21 @@ export const rawToProcessed = (provider: JsonRpcApiProvider, _rawRes: any) => {
 
   return {
     txs: _res.map((t, i): ProcessedTransaction => {
-      const _rawReceipt = _rawRes.receipts[i] || {};
+      const _rawReceipt = filteredReceipts[i] || {};
       const enrichedReceipt = {
         to: _rawReceipt.to || t.to,
         from: _rawReceipt.from || t.from,
         contractAddress: _rawReceipt.contractAddress,
         transactionIndex: _rawReceipt.transactionIndex || t.index,
-        gasUsed: _rawReceipt.gasUsed || t.gasLimit,
+        gasUsed: BigInt(_rawReceipt.gasUsed || t.gasLimit),
         logsBloom: _rawReceipt.logsBloom || "0x",
         blockHash: _rawReceipt.blockHash || "0x0000000000000000000000000000000000000000000000000000000000000000",
         transactionHash: t.hash,
         logs: _rawReceipt.logs || [],
         blockNumber: _rawReceipt.blockNumber || t.blockNumber,
         confirmations: _rawReceipt.confirmations || 0,
-        cumulativeGasUsed: _rawReceipt.cumulativeGasUsed || _rawReceipt.gasUsed || t.gasLimit,
-        effectiveGasPrice: _rawReceipt.effectiveGasPrice || t.gasPrice,
+        cumulativeGasUsed: BigInt(_rawReceipt.cumulativeGasUsed || _rawReceipt.gasUsed || t.gasLimit),
+        effectiveGasPrice: BigInt(_rawReceipt.effectiveGasPrice || t.gasPrice || '0x0'),
         status: _rawReceipt.status ?? 1,
         type: t.type,
         byzantium: true
@@ -84,28 +101,28 @@ export const rawToProcessed = (provider: JsonRpcApiProvider, _rawRes: any) => {
       let gasPrice: bigint;
       
       if (isOptimisticChain(provider._network.chainId)) {
-        const l1Fee: bigint = formatter.bigInt(_rawReceipt.l1Fee ?? 0n);
+        const l1Fee: bigint = formatter.bigInt(_rawReceipt.l1Fee ?? '0x0');
         ({ fee, gasPrice } = getOpFeeData(
           t.type,
-          t.gasPrice!,
+          BigInt(t.gasPrice?.toString() || '0'),
           _receipt.gasUsed,
           l1Fee
         ));
       } else {
-        fee = _receipt.gasUsed * t.gasPrice!;
-        gasPrice = t.gasPrice!;
+        fee = _receipt.gasUsed * BigInt(t.gasPrice?.toString() || '0');
+        gasPrice = BigInt(t.gasPrice?.toString() || '0');
       }
 
       return {
-        blockNumber: t.blockNumber!,
-        timestamp: Math.floor((enrichedTxs[i].timestamp ?? _rawReceipt.timestamp ?? 0) / 1000),
+        blockNumber: Number(t.blockNumber),
+        timestamp: Math.floor(Number(enrichedTxs[i].timestamp ?? _rawReceipt.timestamp ?? 0) / 1000),
         idx: _receipt.index,
         hash: t.hash,
         type: t.type,
         from: t.from,
         to: t.to ?? null,
         createdContractAddress: _receipt.contractAddress ?? undefined,
-        value: t.value,
+        value: BigInt(t.value.toString()),
         fee,
         gasPrice,
         data: t.data,
@@ -113,7 +130,9 @@ export const rawToProcessed = (provider: JsonRpcApiProvider, _rawRes: any) => {
       };
     }),
     firstPage: _rawRes.firstPage,
-    lastPage: _rawRes.lastPage
+    lastPage: _rawRes.lastPage,
+    totalPages: _rawRes.totalPages,
+    totalTransactions: _rawRes.totalTransactions
   };
 };
 

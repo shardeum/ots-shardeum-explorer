@@ -87,16 +87,15 @@ const BlockDetails: FC<BlockDetailsProps> = ({ blockNumberOrHash }) => {
             </NavLink>{" "}
             in this block
           </InfoRow>
-          {/* <InfoRow title="Mined by">
-            <DecoratedAddressLink address={block.miner} miner />
-          </InfoRow> */}
-          <InfoRow title="Block Reward">
-            <BlockReward block={block} />
-          </InfoRow>
-          <InfoRow title="Uncles Reward">
-            <NativeTokenAmount value={block.unclesReward} />
-          </InfoRow>
           <InfoRow title="Size">{commify(block.size)} bytes</InfoRow>
+          <InfoRow title="Gas Used/Limit">
+            {commify(block.gasUsed.toString())} / {commify(block.gasLimit.toString())} ({" "}
+            {((block.gasUsed * 100n) / block.gasLimit).toString()}%{" "})
+          </InfoRow>
+          <InfoRow title="Extra Data">
+            {extraStr} (Hex:{" "}
+            <span className="break-all font-data">{block.extraData}</span>)
+          </InfoRow>
           {block.baseFeePerGas !== null &&
             block.baseFeePerGas !== undefined && (
               <InfoRow title="Base Fee">
@@ -155,10 +154,6 @@ const BlockDetails: FC<BlockDetailsProps> = ({ blockNumberOrHash }) => {
                 {commify(block.excessBlobGas)}
               </InfoRow>
             )}
-          <InfoRow title="Extra Data">
-            {extraStr} (Hex:{" "}
-            <span className="break-all font-data">{block.extraData}</span>)
-          </InfoRow>
           <InfoRow title={`${name} Price`}>
             <NativeTokenPrice blockTag={block.number} />
           </InfoRow>
@@ -191,9 +186,6 @@ const BlockDetails: FC<BlockDetailsProps> = ({ blockNumberOrHash }) => {
               />
             </InfoRow>
           )}
-          <InfoRow title="Sha3Uncles">
-            <HexValue value={block.sha3Uncles} />
-          </InfoRow>
           <InfoRow title="State Root">
             <HexValue value={block.stateRoot} />
           </InfoRow>

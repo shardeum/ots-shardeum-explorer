@@ -8,18 +8,20 @@ import { FC, memo } from "react";
 import { NavLink } from "react-router-dom";
 import { transactionURL } from "../url";
 
-type TransactionLinkProps = {
+interface TransactionLinkProps {
   txHash: string;
   fail?: boolean;
   blob?: boolean;
   deposit?: boolean;
-};
+  className?: string;
+}
 
 const TransactionLink: FC<TransactionLinkProps> = ({
   txHash,
   fail,
   blob,
   deposit,
+  className,
 }) => (
   <span className="flex-no-wrap flex space-x-1">
     {fail && (
@@ -39,7 +41,7 @@ const TransactionLink: FC<TransactionLinkProps> = ({
     )}
     <span className="truncate">
       <NavLink
-        className="font-hash text-link-blue hover:text-link-blue-hover"
+        className={`font-hash text-link-blue hover:text-link-blue-hover ${className}`}
         to={transactionURL(txHash)}
       >
         <p className="truncate" data-test="tx-hash">
