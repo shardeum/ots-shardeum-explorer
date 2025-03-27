@@ -10,10 +10,10 @@ app.use(cors());
 // Determine target URL based on environment
 const getTargetUrl = () => {
   if (process.env.NODE_ENV === 'production') {
-    return process.env.VITE_ERIGON_URL || 'http://34.74.4.130:8090';
+    return process.env.VITE_RPC_URL || 'http://34.74.4.130:8090';
   }
   // Local development defaults to local Erigon at port 8080
-  return process.env.VITE_ERIGON_URL || 'http://127.0.0.1:8080';
+  return process.env.VITE_RPC_URL || 'http://127.0.0.1:8080';
 };
 
 // Create proxy middleware

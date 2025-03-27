@@ -211,7 +211,7 @@ export const useConfig = (
     // Override config for local dev
     const _config: OtterscanConfig = { ...data };
     if (import.meta.env.DEV) {
-      _config.erigonURL = import.meta.env.VITE_ERIGON_URL ?? _config.erigonURL;
+      _config.erigonURL = import.meta.env.VITE_RPC_URL ?? _config.erigonURL;
       _config.beaconAPI =
         import.meta.env.VITE_BEACON_API_URL ?? _config.beaconAPI;
       _config.assetsURLPrefix =
