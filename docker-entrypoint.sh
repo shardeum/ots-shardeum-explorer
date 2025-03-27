@@ -3,7 +3,7 @@
 # Generate config.json with RPC URL and additional settings
 cat > /usr/share/nginx/html/config.json << EOF
 {
-  "erigonURL": "${VITE_RPC_URL}",
+  "erigonURL": "/rpc",
   "experimental": true,
   "branding": {
     "siteName": "Shardeum Explorer"
