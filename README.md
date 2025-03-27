@@ -97,8 +97,8 @@ Another way to deploy Otterscan is using Docker and Docker Compose:
 
 1. Clone the repository and navigate to it:
 ```bash
-git clone https://github.com/shardeum/otterscan.git
-cd otterscan
+git clone https://github.com/shardeum/ots-shardeum-explorer.git
+cd ots-shardeum-explorer
 ```
 
 2. Set up your environment:
