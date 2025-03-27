@@ -11,14 +11,29 @@ import Otter from "./otter.png?w=128&h=128&webp";
 
 const CameraScanner = lazy(() => import("./search/CameraScanner"));
 
+interface CameraScannerProps {
+  onClose: () => void;
+  onScan: (result: string) => void;
+}
+
 const Header: FC = () => {
   const { config, provider } = useContext(RuntimeContext);
   const [searchRef, handleChange, handleSubmit] = useGenericSearch();
   const [isScanning, setScanning] = useState<boolean>(false);
 
+  const handleScan = (result: string) => {
+    console.log("Scanned result:", result);
+    setScanning(false);
+  };
+
   return (
     <>
-      {isScanning && <CameraScanner turnOffScan={() => setScanning(false)} />}
+      {isScanning && (
+        <CameraScanner 
+          onClose={() => setScanning(false)}
+          onScan={handleScan}
+        />
+      )}
       <div className="flex flex-col sm:flex-row items-baseline space-y-1 sm:space-y-0 justify-between px-3 lg:px-9 py-2">
         <div className="flex flex-row justify-between sm:self-center items-center w-full sm:w-auto shrink-0 mr-2">
           <Link className="self-center" to="/">
