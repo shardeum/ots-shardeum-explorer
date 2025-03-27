@@ -17,7 +17,9 @@ To get started with this project, you need to have Node.js and npm installed. Th
 1. Clone the repository: 
 
 ```bash
-git clone https://github.com/shardeum/otterscan.git
+git clone https://github.com/shardeum/ots-shardeum-explorer.git
+
+cd ots-shardeum-explorer
 ```
 
 2. Install dependencies:
