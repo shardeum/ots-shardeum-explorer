@@ -93,7 +93,7 @@ With firewall configured, you should be able to access Otterscan at `http://YOUR
 
 ### 2. Using Docker 
 
-The easiest way to deploy Otterscan is using Docker and Docker Compose:
+Another way to deploy Otterscan is using Docker and Docker Compose:
 
 1. Clone the repository and navigate to it:
 ```bash
