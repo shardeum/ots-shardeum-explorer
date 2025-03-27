@@ -25,6 +25,17 @@ import { formatter } from "../utils/formatter";
 export const rawToProcessed = (provider: JsonRpcApiProvider, _rawRes: any) => {
   console.log("[rawToProcessed] Raw response:", _rawRes);
 
+  if (!_rawRes?.txs || !Array.isArray(_rawRes.txs)) {
+    console.error("[rawToProcessed] Invalid response format:", _rawRes);
+    return {
+      txs: [],
+      firstPage: true,
+      lastPage: true,
+      totalPages: 0,
+      totalTransactions: 0
+    };
+  }
+
   // Filter out test transactions before processing
   const filteredTxs = _rawRes.txs.filter((tx: any) => {
     const isTestTransaction = 
@@ -34,7 +45,7 @@ export const rawToProcessed = (provider: JsonRpcApiProvider, _rawRes: any) => {
   });
 
   // Filter corresponding receipts
-  const filteredReceipts = _rawRes.receipts.filter((_: any, i: number) => {
+  const filteredReceipts = (_rawRes.receipts || []).filter((_: any, i: number) => {
     const tx = _rawRes.txs[i];
     const isTestTransaction = 
       tx.from === "1000000000000000000000000000000000000000000000000000000000000001" &&
@@ -42,93 +53,38 @@ export const rawToProcessed = (provider: JsonRpcApiProvider, _rawRes: any) => {
     return !isTestTransaction;
   });
 
-  // Add required fields to match ethers.js TransactionResponse format
-  const enrichedTxs = filteredTxs.map((tx: any) => {
-    const gasLimit = tx.gas || tx.gasLimit || "0x5208";
-    return {
-      ...tx,
-      type: tx.type ?? 0,
-      chainId: provider._network.chainId,
-      nonce: tx.nonce ?? 0,
-      data: tx.input ?? "0x",
-      gasLimit,
-      maxFeePerGas: tx.maxFeePerGas ?? null,
-      maxPriorityFeePerGas: tx.maxPriorityFeePerGas ?? null,
-      r: tx.r ?? "0x0000000000000000000000000000000000000000000000000000000000000000",
-      s: tx.s ?? "0x0000000000000000000000000000000000000000000000000000000000000000",
-      v: tx.v ?? 27,
-      transactionIndex: tx.transactionIndex ?? "0x0",
-      blockNumber: tx.blockNumber,
-      timestamp: tx.timestamp,
-      idx: typeof tx.transactionIndex === 'string' ? parseInt(tx.transactionIndex, 16) : tx.transactionIndex || 0,
-      hash: tx.hash,
-      from: tx.from,
-      to: tx.to,
-      value: BigInt(tx.value),
-      gasPrice: BigInt(tx.gasPrice || '0x0'),
-    };
-  });
+  const processedTxs: ProcessedTransaction[] = [];
 
-  const _res: TransactionResponse[] = enrichedTxs.map(
-    (tx: any) => new TransactionResponse(formatter.transactionResponse(tx), provider)
-  );
+  for (let i = 0; i < filteredTxs.length; i++) {
+    const tx = filteredTxs[i];
+    const receipt = filteredReceipts[i] || {};
+    const timestamp = tx.timestamp ? Number(tx.timestamp) : Date.now();
+    
+    try {
+      processedTxs.push({
+        blockNumber: Number(tx.blockNumber),
+        timestamp: Math.floor(timestamp / 1000), // Convert to seconds
+        idx: typeof tx.transactionIndex === 'string' ? parseInt(tx.transactionIndex, 16) : (tx.transactionIndex || 0),
+        hash: tx.hash,
+        type: Number(tx.type || 0),
+        from: tx.from,
+        to: tx.to,
+        createdContractAddress: receipt.contractAddress,
+        value: BigInt(tx.value || '0'),
+        fee: BigInt(tx.gasPrice || '0') * BigInt(tx.gas || '0x5208'),
+        gasPrice: BigInt(tx.gasPrice || '0'),
+        data: tx.input || '0x',
+        status: receipt.status ?? 1
+      });
+    } catch (err) {
+      console.error("[rawToProcessed] Error processing transaction:", err, tx);
+      // Skip invalid transactions instead of returning null
+      continue;
+    }
+  }
 
   return {
-    txs: _res.map((t, i): ProcessedTransaction => {
-      const _rawReceipt = filteredReceipts[i] || {};
-      const enrichedReceipt = {
-        to: _rawReceipt.to || t.to,
-        from: _rawReceipt.from || t.from,
-        contractAddress: _rawReceipt.contractAddress,
-        transactionIndex: _rawReceipt.transactionIndex || t.index,
-        gasUsed: BigInt(_rawReceipt.gasUsed || t.gasLimit),
-        logsBloom: _rawReceipt.logsBloom || "0x",
-        blockHash: _rawReceipt.blockHash || "0x0000000000000000000000000000000000000000000000000000000000000000",
-        transactionHash: t.hash,
-        logs: _rawReceipt.logs || [],
-        blockNumber: _rawReceipt.blockNumber || t.blockNumber,
-        confirmations: _rawReceipt.confirmations || 0,
-        cumulativeGasUsed: BigInt(_rawReceipt.cumulativeGasUsed || _rawReceipt.gasUsed || t.gasLimit),
-        effectiveGasPrice: BigInt(_rawReceipt.effectiveGasPrice || t.gasPrice || '0x0'),
-        status: _rawReceipt.status ?? 1,
-        type: t.type,
-        byzantium: true
-      };
-
-      const _receipt = formatter.transactionReceiptParams(enrichedReceipt);
-
-      let fee: bigint;
-      let gasPrice: bigint;
-      
-      if (isOptimisticChain(provider._network.chainId)) {
-        const l1Fee: bigint = formatter.bigInt(_rawReceipt.l1Fee ?? '0x0');
-        ({ fee, gasPrice } = getOpFeeData(
-          t.type,
-          BigInt(t.gasPrice?.toString() || '0'),
-          _receipt.gasUsed,
-          l1Fee
-        ));
-      } else {
-        fee = _receipt.gasUsed * BigInt(t.gasPrice?.toString() || '0');
-        gasPrice = BigInt(t.gasPrice?.toString() || '0');
-      }
-
-      return {
-        blockNumber: Number(t.blockNumber),
-        timestamp: Math.floor(Number(enrichedTxs[i].timestamp ?? _rawReceipt.timestamp ?? 0) / 1000),
-        idx: _receipt.index,
-        hash: t.hash,
-        type: t.type,
-        from: t.from,
-        to: t.to ?? null,
-        createdContractAddress: _receipt.contractAddress ?? undefined,
-        value: BigInt(t.value.toString()),
-        fee,
-        gasPrice,
-        data: t.data,
-        status: _receipt.status!
-      };
-    }),
+    txs: processedTxs,
     firstPage: _rawRes.firstPage,
     lastPage: _rawRes.lastPage,
     totalPages: _rawRes.totalPages,

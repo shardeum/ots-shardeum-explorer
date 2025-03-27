@@ -11,6 +11,7 @@ import NativeTokenAmount from '../components/NativeTokenAmount';
 import TransactionPageControl from './TransactionPageControl';
 import { usePageTitle } from '../useTitle';
 import { PAGE_SIZE } from '../params';
+
 const AllTransactions: FC = () => {
   const { provider } = useContext(RuntimeContext);
   const [searchParams] = useSearchParams();
@@ -32,15 +33,9 @@ const AllTransactions: FC = () => {
         
         const processed = await rawToProcessed(provider!, response);
         
-        console.log('Processed response:', processed); // Debug log
+        console.log('Processed transactions:', processed); // Debug log
         
-        return {
-          transactions: processed.txs,
-          firstPage: response.firstPage,
-          lastPage: response.lastPage,
-          totalPages: response.totalPages,
-          totalTransactions: response.totalTransactions
-        };
+        return processed;
       } catch (err) {
         console.error('Error processing transactions:', err);
         throw err;
@@ -73,6 +68,15 @@ const AllTransactions: FC = () => {
     );
   }
 
+  if (!data?.txs || data.txs.length === 0) {
+    return (
+      <div className="container mx-auto px-4 py-8">
+        <h1 className="text-2xl font-bold mb-8">Transactions</h1>
+        <div className="text-gray-500">No transactions found</div>
+      </div>
+    );
+  }
+
   return (
     <div className="container mx-auto px-4 py-8">
       <h1 className="text-2xl font-bold mb-8">Transactions</h1>
@@ -90,7 +94,7 @@ const AllTransactions: FC = () => {
               </tr>
             </thead>
             <tbody className="divide-y divide-gray-200">
-              {data?.transactions.map((tx: ProcessedTransaction) => (
+              {data.txs.map((tx: ProcessedTransaction) => (
                 <tr key={tx.hash} className="hover:bg-gray-50 transition-colors">
                   <td className="py-3 sm:py-4 px-2 sm:px-4">
                     <div className="w-16 sm:w-24 md:w-36 truncate">
@@ -100,56 +104,35 @@ const AllTransactions: FC = () => {
                       />
                     </div>
                   </td>
-                  <td className="py-3 sm:py-4 px-2 sm:px-4 text-gray-500 whitespace-nowrap text-xs sm:text-sm">
-                    <TimestampAge timestamp={Number(tx.timestamp)} />
+                  <td className="py-3 sm:py-4 px-2 sm:px-4 text-xs sm:text-sm">
+                    <TimestampAge timestamp={tx.timestamp} />
                   </td>
                   <td className="py-3 sm:py-4 px-2 sm:px-4">
                     <div className="w-16 sm:w-24 md:w-36 truncate">
-                      <PlainAddress 
-                        address={tx.from || ''} 
-                        linkable={true} 
-                        dontOverrideColors={false}
-                        className="text-blue-600 hover:text-blue-700 transition-colors font-medium text-xs sm:text-sm"
-                      />
+                      {tx.from && <PlainAddress address={tx.from} />}
                     </div>
                   </td>
                   <td className="py-3 sm:py-4 px-2 sm:px-4">
                     <div className="w-16 sm:w-24 md:w-36 truncate">
-                      <PlainAddress 
-                        address={tx.to || ''} 
-                        linkable={true} 
-                        dontOverrideColors={false}
-                        className="text-blue-600 hover:text-blue-700 transition-colors font-medium text-xs sm:text-sm"
-                      />
+                      {tx.to && <PlainAddress address={tx.to} />}
                     </div>
                   </td>
-                  <td className="py-3 sm:py-4 px-2 sm:px-4 text-right font-medium whitespace-nowrap text-xs sm:text-sm">
-                    <NativeTokenAmount value={BigInt(tx.value)} />
+                  <td className="py-3 sm:py-4 px-2 sm:px-4 text-right text-xs sm:text-sm">
+                    <NativeTokenAmount value={tx.value} />
                   </td>
                 </tr>
               ))}
             </tbody>
           </table>
         </div>
-        
-        {data && (
-          <div className="py-4 px-4 border-t border-gray-200">
-            <div className="flex items-baseline justify-between py-3">
-              <div className="text-sm text-gray-500">
-                {data.totalTransactions === undefined ? (
-                  "Waiting for search results..."
-                ) : (
-                  `${data.totalTransactions} transactions`
-                )}
-              </div>
-              <TransactionPageControl
-                currentPage={currentPage}
-                totalPages={data.totalPages}
-                disabled={isLoading}
-              />
-            </div>
-          </div>
-        )}
+      </div>
+
+      <div className="mt-8">
+        <TransactionPageControl 
+          currentPage={currentPage}
+          totalPages={data.totalPages} 
+          disabled={isLoading}
+        />
       </div>
     </div>
   );
