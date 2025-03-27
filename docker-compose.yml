@@ -5,11 +5,13 @@ services:
     build:
       context: .
       dockerfile: Dockerfile
+      args:
+        - VITE_RPC_URL=${VITE_RPC_URL}  # Pass to build stage
     container_name: otterscan
     ports:
       - "${PORT:-80}:80"  # Use PORT from .env or default to 80
     environment:
-      - VITE_RPC_URL=${VITE_RPC_URL}  # Use VITE_RPC_URL from .env
+      - VITE_RPC_URL=${VITE_RPC_URL}  # Also pass to runtime
     restart: unless-stopped
     healthcheck:
       test: ["CMD", "wget", "--quiet", "--tries=1", "--spider", "http://localhost:80"]

@@ -3,6 +3,10 @@ FROM node:20.10.0-alpine3.17 as builder
 # Set working directory
 WORKDIR /app
 
+# Build arguments
+ARG VITE_RPC_URL
+ENV VITE_RPC_URL=${VITE_RPC_URL}
+
 # Copy package files
 COPY package*.json ./
 
