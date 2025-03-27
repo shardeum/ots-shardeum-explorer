@@ -10,19 +10,128 @@ This is an Ethereum block explorer designed to be run locally with an archive no
 
 This approach brings many advantages, as follows.
 
-### Privacy
+## Getting Started
+
+To get started with this project, you need to have Node.js and npm installed. Then, follow these steps:
+
+1. Clone the repository: 
+
+```bash
+git clone https://github.com/shardeum/otterscan.git
+```
+
+2. Install dependencies:
+
+```bash
+npm install
+```
+
+3. Set the environment variable:
+
+```bash
+VITE_RPC_URL=your_shardeum_rpc_url
+```
+
+4. Build the project:
+
+```bash
+npm run build
+```
+
+5. Run the project:
+
+```bash
+npm run dev
+```
+
+6. Open the project in your browser:
+
+```bash
+http://localhost:5173
+```
+
+## Deploying
+
+There are two recommended ways to deploy Otterscan in production:
+
+### 1. Using Docker (Recommended)
+
+The easiest way to deploy Otterscan is using Docker and Docker Compose:
+
+1. Clone the repository and navigate to it:
+```bash
+git clone https://github.com/shardeum/otterscan.git
+cd otterscan
+```
+
+2. Set up your environment:
+```bash
+cp .env.example .env
+# Edit .env and update the VITE_RPC_URL with your Shardeum node URL
+# Optionally set PORT if you want to use a different port than 80
+```
+
+3. Start the service:
+```bash
+docker-compose up -d
+```
+
+The application will be available at `http://localhost:80` (or whichever port you configured in .env).
+
+#### Managing Your Docker Deployment
+
+- View logs:
+```bash
+docker-compose logs -f
+```
+
+- Stop the service:
+```bash
+docker-compose down
+```
+
+- Update to the latest version:
+```bash
+git pull
+docker-compose up -d --build
+```
+
+### 2. Using PM2 (Alternative)
+
+If you prefer not to use Docker, you can deploy using PM2:
+
+1. Install PM2 globally:
+```bash
+npm install -g pm2
+```
+
+2. Set up your environment:
+```bash
+cp .env.example .env
+# Edit .env and update the VITE_RPC_URL
+```
+
+3. Build and start the application:
+```bash
+npm run build
+pm2 start npm --name "otterscan" -- start
+```
+
+Both methods will automatically restart the application if it crashes. Choose the one that best fits your infrastructure and expertise.
+
+## Privacy
 
 You are querying your own node, so you are not sending your IP address or queries to an external third-party node.
 
-### Fast
+## Fast
 
 Since you are querying your local archive node, everything is fast, no network roundtrips are necessary.
 
-### Actually, very fast
+## Actually, very fast
 
 This software was designed to be a companion of Erigon, a blazingly fast archive node.
 
-### Really, it is even faster
+## Really, it is even faster
 
 The standard web3 jsonrpc methods are quite verbose and generic requiring many calls to gather many pieces of information at client side.
 
@@ -146,23 +255,3 @@ Also there is room for many improvements that are not possible in the current ce
 This software itself is MIT licensed and redistributes MIT-compatible dependencies.
 
 The Otterscan API is implemented inside Erigon and follow its own license (LPGL-3).
-
-## Getting in touch
-
-### Erigon Discord server
-
-Our Discord server: https://discord.gg/5xM2q2eqDz
-
-Otterscan also has a community channel under the "ecosystem" section of [Erigon's Discord](https://github.com/ledgerwatch/erigon#erigon-discord-server) (invite should be requested).
-
-### Twitter
-
-Official Twitter account: ([@otterscan](https://twitter.com/otterscan)).
-
-Follow the creator on Twitter for more updates ([@wmitsuda](https://twitter.com/wmitsuda)).
-
-### Donation address
-
-If you like this project, feel free to send donations to `otterscan.eth` on any EVM chain (it's an EOA).
-
-We also participate regularly on Gitcoin Grants rounds.

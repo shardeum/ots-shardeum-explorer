@@ -1,0 +1,19 @@
+version: '3.8'
+
+services:
+  otterscan:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    container_name: otterscan
+    ports:
+      - "${PORT:-80}:80"  # Use PORT from .env or default to 80
+    environment:
+      - RPC_URL=${VITE_RPC_URL}  # Use the same RPC URL from .env
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "wget", "--quiet", "--tries=1", "--spider", "http://localhost:80"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 20s
