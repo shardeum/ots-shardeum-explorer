@@ -29,7 +29,7 @@ npm install
 3. Set the environment variable:
 
 ```bash
-VITE_RPC_URL=your_shardeum_rpc_url
+export VITE_RPC_URL=your_shardeum_rpc_url
 ```
 
 4. Build the project:
@@ -108,13 +108,13 @@ npm install -g pm2
 2. Set up your environment:
 ```bash
 cp .env.example .env
-# Edit .env and update the VITE_RPC_URL
+# Edit .env and update the VITE_RPC_URL with your Shardeum RPC URL
 ```
 
 3. Build and start the application:
 ```bash
 npm run build
-pm2 start npm --name "otterscan" -- start
+VITE_RPC_URL=your_shardeum_rpc_url pm2 start npm --name "otterscan" -- start
 ```
 
 Both methods will automatically restart the application if it crashes. Choose the one that best fits your infrastructure and expertise.

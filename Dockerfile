@@ -25,15 +25,12 @@ COPY nginx/nginx.conf /etc/nginx/nginx.conf
 # Copy built files
 COPY --from=builder /app/dist /usr/share/nginx/html
 
-# Create a simple script to generate config.json
-RUN echo '#!/bin/sh\n\
-PARAMS=$(echo "{\\"erigonURL\\": \\"$RPC_URL\\"}")\n\
-echo $PARAMS > /usr/share/nginx/html/config.json\n\
-exec nginx -g "daemon off;"' > /docker-entrypoint.sh \
-    && chmod +x /docker-entrypoint.sh
+# Copy entrypoint script
+COPY docker-entrypoint.sh /docker-entrypoint.sh
+RUN chmod +x /docker-entrypoint.sh
 
 # Set environment variable
-ENV RPC_URL=""
+ENV VITE_RPC_URL=""
 
 # Start nginx
-CMD ["/docker-entrypoint.sh"]
+ENTRYPOINT ["/docker-entrypoint.sh"]

@@ -9,7 +9,7 @@ services:
     ports:
       - "${PORT:-80}:80"  # Use PORT from .env or default to 80
     environment:
-      - RPC_URL=${VITE_RPC_URL}  # Use the same RPC URL from .env
+      - VITE_RPC_URL=${VITE_RPC_URL}  # Use VITE_RPC_URL from .env
     restart: unless-stopped
     healthcheck:
       test: ["CMD", "wget", "--quiet", "--tries=1", "--spider", "http://localhost:80"]
