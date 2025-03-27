@@ -56,7 +56,42 @@ http://localhost:5173
 
 There are two recommended ways to deploy Otterscan in production:
 
-### 1. Using Docker (Recommended)
+### 1. Using PM2
+
+You can deploy using PM2:
+
+1. Install PM2 globally:
+```bash
+npm install -g pm2
+```
+
+2. Set up your environment:
+```bash
+cp .env.example .env
+# Edit .env and update the VITE_RPC_URL with your Shardeum RPC URL
+```
+
+> Be sure to open port 5173 in your firewall. 
+
+
+3. Build and start the application:
+```bash
+npm run build
+VITE_RPC_URL=your_shardeum_rpc_url pm2 start npm --name "otterscan" -- start
+```
+
+You may need to start as host 0.0.0.0 depending on your setup. Should that be the case, update the start script in packae.json to:
+
+```json
+"scripts": {
+  "start": "vite --host 0.0.0.0",
+  ...
+}
+```
+
+With firewall configured, you should be able to access Otterscan at `http://YOUR_VM_EXTERNAL_IP:5173`.
+
+### 2. Using Docker 
 
 The easiest way to deploy Otterscan is using Docker and Docker Compose:
 
@@ -98,28 +133,7 @@ git pull
 docker-compose up -d --build
 ```
 
-### 2. Using PM2 (Alternative)
 
-If you prefer not to use Docker, you can deploy using PM2:
-
-1. Install PM2 globally:
-```bash
-npm install -g pm2
-```
-
-2. Set up your environment:
-```bash
-cp .env.example .env
-# Edit .env and update the VITE_RPC_URL with your Shardeum RPC URL
-```
-
-3. Build and start the application:
-```bash
-npm run build
-VITE_RPC_URL=your_shardeum_rpc_url pm2 start npm --name "otterscan" -- start
-```
-
-Both methods will automatically restart the application if it crashes. Choose the one that best fits your infrastructure and expertise.
 
 ## Privacy
 
