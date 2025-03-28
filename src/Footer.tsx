@@ -13,7 +13,7 @@ const Footer: React.FC = () => {
       } text-center mt-auto`}
     >
       {provider ? (
-        <>Shardeum Atomium {config?.erigonURL}</>
+        <>Shardeum  {config?.erigonURL}</>
       ) : (
         <>Waiting for the provider...</>
       )}
