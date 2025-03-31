@@ -135,14 +135,20 @@ export const useMethodSelector = (
   const rawFourBytes = extract4Bytes(data);
   let fourBytesEntry = use4Bytes(rawFourBytes, to);
   const isSimpleTransfer = data === "0x";
+  
+  // If it's not a simple transfer and has no valid method signature,
+  // treat it as a Shardeum internal transaction
   const methodName = isSimpleTransfer
     ? "transfer"
-    : fourBytesEntry?.name ?? rawFourBytes ?? "-";
+    : fourBytesEntry?.name ?? "shardeum_internal_tx";
+    
   const methodTitle = isSimpleTransfer
-    ? "ETH Transfer"
+    ? "SHM Transfer"
+    : methodName === "shardeum_internal_tx"
+    ? "Shardeum Internal Transaction"
     : methodName === rawFourBytes
-      ? methodName
-      : `${methodName} [${rawFourBytes}]`;
+    ? methodName
+    : `${methodName} [${rawFourBytes}]`;
 
   const fromVerifiedContract = fourBytesEntry
     ? fourBytesEntry.fromVerifiedContract

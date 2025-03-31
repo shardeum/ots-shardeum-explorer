@@ -19,7 +19,10 @@ import useSWR, { Fetcher } from "swr";
 import useSWRImmutable from "swr/immutable";
 import erc20 from "./abi/erc20.json";
 import L1Block from "./abi/optimism/L1Block.json";
-import { getOpFeeData, isOptimisticChain } from "./execution/op-tx-calculation";
+import {
+  getOpFeeData,
+  isOptimisticChain,
+} from "./execution/op-tx-calculation";
 import {
   ChecksummedAddress,
   InternalOperation,
@@ -64,26 +67,45 @@ export const readBlock = async (
     blockPromise = provider.send("ots_getBlockDetails", [blockNumber]);
   }
 
-  const _rawBlock = await blockPromise;
-  if (_rawBlock === null) {
+  const response = await blockPromise;
+  if (response === null || response.block === null) {
     return null;
   }
-  const _block: BlockParams = formatter.blockParams(_rawBlock.block);
-  const _rawIssuance = _rawBlock.issuance;
 
-  const extBlock: ExtendedBlock = {
-    blockReward: formatter.bigInt(_rawIssuance.blockReward ?? 0),
-    unclesReward: formatter.bigInt(_rawIssuance.uncleReward ?? 0),
-    feeReward: formatter.bigInt(_rawBlock.totalFees),
-    size: formatter.number(_rawBlock.block.size),
-    sha3Uncles: _rawBlock.block.sha3Uncles,
-    stateRoot: _rawBlock.block.stateRoot,
-    totalDifficulty: formatter.bigInt(_rawBlock.block.totalDifficulty),
-    transactionCount: formatter.number(_rawBlock.block.transactionCount),
-    // Optimism-specific; gas used by the deposit transaction
-    gasUsedDepositTx: formatter.bigInt(_rawBlock.gasUsedDepositTx ?? 0n),
-    ..._block,
+  // Format the raw block data
+  const rawBlock = response.block;
+  const rawIssuance = response.issuance ?? {};
+  
+  // First format the basic block parameters
+  const blockParams = {
+    hash: rawBlock.hash,
+    parentHash: rawBlock.parentHash,
+    number: formatter.number(rawBlock.number),
+    timestamp: formatter.number(rawBlock.timestamp),
+    nonce: rawBlock.nonce,
+    difficulty: formatter.bigInt(rawBlock.difficulty),
+    gasLimit: formatter.bigInt(rawBlock.gasLimit),
+    gasUsed: formatter.bigInt(rawBlock.gasUsed),
+    miner: formatter.address(rawBlock.miner),
+    extraData: rawBlock.extraData,
+    baseFeePerGas: null, // Add if present in your chain
+    transactions: rawBlock.transactions?.map((tx: any) => tx.txHash) ?? [],
   };
+
+  // Then create the extended block with additional fields
+  const extBlock: ExtendedBlock = {
+    ...blockParams,
+    blockReward: formatter.bigInt(rawIssuance.blockReward ?? 0),
+    unclesReward: formatter.bigInt(rawIssuance.uncleReward ?? 0),
+    feeReward: formatter.bigInt(response.totalFees ?? 0),
+    size: formatter.number(rawBlock.size),
+    sha3Uncles: rawBlock.sha3Uncles,
+    stateRoot: rawBlock.stateRoot,
+    totalDifficulty: formatter.bigInt(rawBlock.totalDifficulty),
+    transactionCount: formatter.number(rawBlock.transactionCount),
+    gasUsedDepositTx: formatter.bigInt(response.gasUsedDepositTx ?? 0n),
+  };
+
   return extBlock;
 };
 
@@ -96,77 +118,64 @@ const blockTransactionsFetcher: Fetcher<
   BlockTransactionsPage,
   [JsonRpcApiProvider, number, number, number]
 > = async ([provider, blockNumber, pageNumber, pageSize]) => {
-  const result = await provider.send("ots_getBlockTransactions", [
-    blockNumber,
-    pageNumber,
-    pageSize,
-  ]);
-  const _block = formatter.blockParamsWithTransactions(result.fullblock);
-  const _receipts = result.receipts;
+  try {
+    const txs = await provider.send("ots_getBlockTransaction", [
+      blockNumber,
+      pageNumber,
+      pageSize,
+    ]);
 
-  const rawTxs = _block.transactions
-    .map((t: TransactionResponseParams, i: number): ProcessedTransaction => {
-      const _rawReceipt = _receipts[i];
-      // Empty logs on purpose because of ethers formatter requires it
-      _rawReceipt.logs = [];
-      const _receipt: TransactionReceiptParams =
-        formatter.transactionReceiptParams(_rawReceipt);
+    if (!Array.isArray(txs)) {
+      return { total: 0, txs: [] };
+    }
 
-      if (t.hash === null) {
-        throw new Error("blockTransactionsFetcher: unknown tx hash");
+    // Transform the response into the expected format
+    const formattedTxs = txs.map(tx => {
+      const receipt = tx.wrappedEVMAccount?.readableReceipt;
+      if (!receipt) {
+        return null;
       }
 
-      let fee: bigint;
-      let effectiveGasPrice: bigint;
-      if (t.type === 2 || t.type === 3) {
-        const tip =
-          t.maxFeePerGas! - _block.baseFeePerGas! < t.maxPriorityFeePerGas!
-            ? t.maxFeePerGas! - _block.baseFeePerGas!
-            : t.maxPriorityFeePerGas!;
-        effectiveGasPrice = _block.baseFeePerGas! + tip;
-      } else {
-        effectiveGasPrice = t.gasPrice!;
-      }
+      // Helper to convert hex or decimal string to BigInt
+      const toBigInt = (value: string | null | undefined, defaultValue = "0") => {
+        if (!value || value === "0x") return BigInt(defaultValue);
+        return BigInt(value.startsWith("0x") ? value : `0x${value}`);
+      };
 
-      // Handle Optimism-specific values
-      let l1Fee: bigint | undefined;
-      if (isOptimisticChain(provider._network.chainId)) {
-        if (t.type === 126) {
-          fee = 0n;
-          effectiveGasPrice = 0n;
-        } else {
-          l1Fee = formatter.bigInt(_rawReceipt.l1Fee);
-          ({ fee, gasPrice: effectiveGasPrice } = getOpFeeData(
-            t.type,
-            effectiveGasPrice,
-            _receipt.gasUsed!,
-            l1Fee,
-          ));
-        }
-      } else {
-        fee = formatter.bigInt(_receipt.gasUsed) * effectiveGasPrice;
-      }
+      // Helper to convert hex to number
+      const toNumber = (value: string | null | undefined, defaultValue = 0) => {
+        if (!value || value === "0x") return defaultValue;
+        return parseInt(value.startsWith("0x") ? value : `0x${value}`, 16);
+      };
+
+      const gasUsed = toBigInt(receipt.gasUsed);
+      const gasPrice = toBigInt(receipt.gasPrice);
 
       return {
         blockNumber: blockNumber,
-        timestamp: _block.timestamp,
-        miner: _block.miner,
-        idx: i,
-        hash: t.hash,
-        from: t.from ?? undefined,
-        to: t.to ?? null,
-        createdContractAddress: _receipt.contractAddress ?? undefined,
-        value: t.value,
-        type: t.type,
-        fee,
-        gasPrice: effectiveGasPrice,
-        data: t.data,
-        status: formatter.number(_receipt.status),
+        timestamp: Math.floor(tx.timestamp / 1000), // Convert from ms to seconds
+        miner: undefined, // Will be set from block data
+        idx: toNumber(receipt.transactionIndex),
+        hash: tx.txHash,
+        from: tx.txFrom,
+        to: tx.txTo,
+        createdContractAddress: receipt.contractAddress || undefined,
+        value: toBigInt(receipt.value),
+        type: toNumber(receipt.type),
+        fee: gasUsed * gasPrice,
+        gasPrice: gasPrice,
+        data: receipt.data || "0x",
+        status: receipt.status ?? 0,
       };
-    })
-    .reverse();
+    }).filter(tx => tx !== null) as ProcessedTransaction[];
 
-  return { total: result.fullblock.transactionCount, txs: rawTxs };
+    return {
+      total: formattedTxs.length,
+      txs: formattedTxs
+    };
+  } catch (error) {
+    throw error;
+  }
 };
 
 export const useBlockTransactions = (
@@ -175,16 +184,14 @@ export const useBlockTransactions = (
   pageNumber: number,
   pageSize: number,
 ): { data: BlockTransactionsPage | undefined; isLoading: boolean } => {
-  const { data, error, isLoading } = useSWRImmutable(
+  const { data, isLoading } = useSWRImmutable(
     provider !== undefined && blockNumber !== undefined
       ? [provider, blockNumber, pageNumber, pageSize]
       : null,
     blockTransactionsFetcher,
     { keepPreviousData: true },
   );
-  if (error) {
-    return { data: undefined, isLoading: false };
-  }
+
   return { data, isLoading };
 };
 
@@ -239,14 +246,27 @@ export const useTxData = (
 
     const readTxData = async () => {
       try {
-        const [_response, _receipt] = await Promise.all([
-          provider.getTransaction(txhash),
-          provider.getTransactionReceipt(txhash),
+        // Make all requests in parallel immediately
+        const [rawTx] = await Promise.all([
+          provider.send("eth_getTransactionByHash", [txhash]),
         ]);
-        if (_response === null) {
+
+        if (!rawTx) {
           setTxData(null);
           return;
         }
+
+        // Helper to ensure addresses have 0x prefix
+        const normalizeAddress = (addr: string | null | undefined) => {
+          if (!addr) return undefined;
+          return addr.startsWith('0x') ? addr : `0x${addr}`;
+        };
+
+        // Get receipt separately after normalizing the from address
+        const receipt = await provider.send(
+          "eth_getTransactionReceipt",
+          [txhash],
+        );
 
         let fee: bigint;
         let gasPrice: bigint;
@@ -257,7 +277,7 @@ export const useTxData = (
         let l1FeeScalar: string | undefined;
         let l1Fee: bigint | undefined;
         if (isOptimisticChain(provider._network.chainId)) {
-          if (_response.type === 0x7e) {
+          if (rawTx.type === '0x7e') {
             fee = 0n;
             gasPrice = 0n;
           } else {
@@ -270,51 +290,51 @@ export const useTxData = (
             l1FeeScalar = _rawReceipt.l1FeeScalar;
             l1Fee = formatter.bigInt(_rawReceipt.l1Fee);
             ({ fee, gasPrice } = getOpFeeData(
-              _response.type,
-              _response.gasPrice!,
-              _receipt ? _receipt.gasUsed! : 0n,
+              parseInt(rawTx.type || '0x0'),
+              BigInt(rawTx.gasPrice || '0x0'),
+              receipt ? BigInt(receipt.gasUsed || '0x0') : 0n,
               l1Fee,
             ));
           }
         } else {
-          fee = _response.gasPrice! * _receipt!.gasUsed!;
-          gasPrice = _response.gasPrice!;
+          fee = BigInt(rawTx.gasPrice || '0x0') * BigInt(receipt?.gasUsed || '0x0');
+          gasPrice = BigInt(rawTx.gasPrice || '0x0');
         }
 
+        // Format receipt data
+        const confirmedData = receipt ? {
+          status: receipt.status === '0x1',
+          blockNumber: parseInt(receipt.blockNumber),
+          transactionIndex: parseInt(receipt.transactionIndex),
+          confirmations: 1, // TODO: Calculate proper confirmations
+          createdContractAddress: normalizeAddress(receipt.contractAddress),
+          fee,
+          gasUsed: BigInt(receipt.gasUsed || '0x0'),
+          logs: receipt.logs || [],
+          blobGasPrice: receipt.blobGasPrice ? BigInt(receipt.blobGasPrice) : undefined,
+          blobGasUsed: receipt.blobGasUsed ? BigInt(receipt.blobGasUsed) : undefined,
+          l1GasUsed,
+          l1GasPrice,
+          l1FeeScalar,
+          l1Fee,
+        } : undefined;
+
         setTxData({
-          transactionHash: _response.hash,
-          from: _response.from,
-          to: _response.to ?? undefined,
-          value: _response.value,
-          type: _response.type ?? 0,
-          maxFeePerGas: _response.maxFeePerGas ?? undefined,
-          maxPriorityFeePerGas: _response.maxPriorityFeePerGas ?? undefined,
+          transactionHash: rawTx.hash,
+          from: normalizeAddress(rawTx.from)!,
+          to: normalizeAddress(rawTx.to),
+          value: BigInt(rawTx.value || '0x0'),
+          type: parseInt(rawTx.type || '0x0'),
+          maxFeePerGas: rawTx.maxFeePerGas ? BigInt(rawTx.maxFeePerGas) : undefined,
+          maxPriorityFeePerGas: rawTx.maxPriorityFeePerGas ? BigInt(rawTx.maxPriorityFeePerGas) : undefined,
           gasPrice,
-          gasLimit: _response.gasLimit,
-          nonce: BigInt(_response.nonce),
-          data: _response.data,
-          maxFeePerBlobGas: _response.maxFeePerBlobGas ?? undefined,
-          blobVersionedHashes: _response.blobVersionedHashes ?? undefined,
-          timestamp: (_response as any).timestamp ? Math.floor((_response as any).timestamp / 1000) : undefined,
-          confirmedData:
-            _receipt === null
-              ? undefined
-              : {
-                  status: _receipt.status === 1,
-                  blockNumber: _receipt.blockNumber,
-                  transactionIndex: _receipt.index,
-                  confirmations: await _receipt.confirmations(),
-                  createdContractAddress: _receipt.contractAddress ?? undefined,
-                  fee,
-                  gasUsed: _receipt.gasUsed,
-                  logs: Array.from(_receipt.logs),
-                  blobGasPrice: _receipt.blobGasPrice ?? undefined,
-                  blobGasUsed: _receipt.blobGasUsed ?? undefined,
-                  l1GasUsed,
-                  l1GasPrice,
-                  l1FeeScalar,
-                  l1Fee,
-                },
+          gasLimit: BigInt(rawTx.gas || '0x0'),
+          nonce: BigInt(rawTx.nonce || '0x0'),
+          data: rawTx.input || rawTx.data || '0x',
+          maxFeePerBlobGas: rawTx.maxFeePerBlobGas ? BigInt(rawTx.maxFeePerBlobGas) : undefined,
+          blobVersionedHashes: rawTx.blobVersionedHashes ?? undefined,
+          timestamp: rawTx.timestamp ? Math.floor(Number(rawTx.timestamp)) / 1000 : undefined,
+          confirmedData,
         });
       } catch (err) {
         console.error(err);
