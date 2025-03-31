@@ -246,15 +246,15 @@ export const useTxData = (
 
     const readTxData = async () => {
       try {
-        // Get raw transaction data to access custom fields
-        const rawTx = await provider.send("eth_getTransactionByHash", [txhash]);
-        console.log("Raw transaction response:", rawTx);
-
-        const [_response, _receipt] = await Promise.all([
+        // Make all requests in parallel immediately
+        const [tx, receipt, rawTx] = await Promise.all([
           provider.getTransaction(txhash),
           provider.getTransactionReceipt(txhash),
+          // Use raw RPC call to get transaction with timestamp
+          provider.send("eth_getTransactionByHash", [txhash])
         ]);
-        if (_response === null) {
+
+        if (tx === null) {
           setTxData(null);
           return;
         }
@@ -268,7 +268,7 @@ export const useTxData = (
         let l1FeeScalar: string | undefined;
         let l1Fee: bigint | undefined;
         if (isOptimisticChain(provider._network.chainId)) {
-          if (_response.type === 0x7e) {
+          if (tx.type === 0x7e) {
             fee = 0n;
             gasPrice = 0n;
           } else {
@@ -281,46 +281,46 @@ export const useTxData = (
             l1FeeScalar = _rawReceipt.l1FeeScalar;
             l1Fee = formatter.bigInt(_rawReceipt.l1Fee);
             ({ fee, gasPrice } = getOpFeeData(
-              _response.type,
-              _response.gasPrice!,
-              _receipt ? _receipt.gasUsed! : 0n,
+              tx.type,
+              tx.gasPrice!,
+              receipt ? receipt.gasUsed! : 0n,
               l1Fee,
             ));
           }
         } else {
-          fee = _response.gasPrice! * _receipt!.gasUsed!;
-          gasPrice = _response.gasPrice!;
+          fee = tx.gasPrice! * receipt!.gasUsed!;
+          gasPrice = tx.gasPrice!;
         }
 
         setTxData({
-          transactionHash: _response.hash,
-          from: _response.from,
-          to: _response.to ?? undefined,
-          value: _response.value,
-          type: _response.type ?? 0,
-          maxFeePerGas: _response.maxFeePerGas ?? undefined,
-          maxPriorityFeePerGas: _response.maxPriorityFeePerGas ?? undefined,
+          transactionHash: tx.hash,
+          from: tx.from,
+          to: tx.to ?? undefined,
+          value: tx.value,
+          type: tx.type ?? 0,
+          maxFeePerGas: tx.maxFeePerGas ?? undefined,
+          maxPriorityFeePerGas: tx.maxPriorityFeePerGas ?? undefined,
           gasPrice,
-          gasLimit: _response.gasLimit,
-          nonce: BigInt(_response.nonce),
-          data: _response.data,
-          maxFeePerBlobGas: _response.maxFeePerBlobGas ?? undefined,
-          blobVersionedHashes: _response.blobVersionedHashes ?? undefined,
+          gasLimit: tx.gasLimit,
+          nonce: BigInt(tx.nonce),
+          data: tx.data,
+          maxFeePerBlobGas: tx.maxFeePerBlobGas ?? undefined,
+          blobVersionedHashes: tx.blobVersionedHashes ?? undefined,
           timestamp: rawTx.timestamp ? Math.floor(Number(rawTx.timestamp)) / 1000 : undefined,
           confirmedData:
-            _receipt === null
+            receipt === null
               ? undefined
               : {
-                  status: _receipt.status === 1,
-                  blockNumber: _receipt.blockNumber,
-                  transactionIndex: _receipt.index,
-                  confirmations: await _receipt.confirmations(),
-                  createdContractAddress: _receipt.contractAddress ?? undefined,
+                  status: receipt.status === 1,
+                  blockNumber: receipt.blockNumber,
+                  transactionIndex: receipt.index,
+                  confirmations: await receipt.confirmations(),
+                  createdContractAddress: receipt.contractAddress ?? undefined,
                   fee,
-                  gasUsed: _receipt.gasUsed,
-                  logs: Array.from(_receipt.logs),
-                  blobGasPrice: _receipt.blobGasPrice ?? undefined,
-                  blobGasUsed: _receipt.blobGasUsed ?? undefined,
+                  gasUsed: receipt.gasUsed,
+                  logs: Array.from(receipt.logs),
+                  blobGasPrice: receipt.blobGasPrice ?? undefined,
+                  blobGasUsed: receipt.blobGasUsed ?? undefined,
                   l1GasUsed,
                   l1GasPrice,
                   l1FeeScalar,

@@ -4,7 +4,8 @@ import React from "react";
 import TimestampAge from "./TimestampAge";
 
 type TimestampProps = {
-  value: number;
+  value?: number;
+  isLoading?: boolean;
 };
 
 const months = [
@@ -22,7 +23,20 @@ const months = [
   "Dec",
 ];
 
-const Timestamp: React.FC<TimestampProps> = ({ value }) => {
+const Timestamp: React.FC<TimestampProps> = ({ value, isLoading }) => {
+  if (isLoading) {
+    return (
+      <div className="flex items-baseline space-x-1">
+        <FontAwesomeIcon className="self-center" icon={faClock} size="sm" />
+        <span className="text-gray-500 italic">fetching data from block...</span>
+      </div>
+    );
+  }
+
+  if (!value) {
+    return null;
+  }
+
   const d = new Date(value * 1000);
   let hour = d.getUTCHours() % 12;
   if (hour === 0) {
