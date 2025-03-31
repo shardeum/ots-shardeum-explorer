@@ -19,7 +19,10 @@ import useSWR, { Fetcher } from "swr";
 import useSWRImmutable from "swr/immutable";
 import erc20 from "./abi/erc20.json";
 import L1Block from "./abi/optimism/L1Block.json";
-import { getOpFeeData, isOptimisticChain } from "./execution/op-tx-calculation";
+import {
+  getOpFeeData,
+  isOptimisticChain,
+} from "./execution/op-tx-calculation";
 import {
   ChecksummedAddress,
   InternalOperation,
@@ -64,26 +67,45 @@ export const readBlock = async (
     blockPromise = provider.send("ots_getBlockDetails", [blockNumber]);
   }
 
-  const _rawBlock = await blockPromise;
-  if (_rawBlock === null) {
+  const response = await blockPromise;
+  if (response === null || response.block === null) {
     return null;
   }
-  const _block: BlockParams = formatter.blockParams(_rawBlock.block);
-  const _rawIssuance = _rawBlock.issuance;
 
-  const extBlock: ExtendedBlock = {
-    blockReward: formatter.bigInt(_rawIssuance.blockReward ?? 0),
-    unclesReward: formatter.bigInt(_rawIssuance.uncleReward ?? 0),
-    feeReward: formatter.bigInt(_rawBlock.totalFees),
-    size: formatter.number(_rawBlock.block.size),
-    sha3Uncles: _rawBlock.block.sha3Uncles,
-    stateRoot: _rawBlock.block.stateRoot,
-    totalDifficulty: formatter.bigInt(_rawBlock.block.totalDifficulty),
-    transactionCount: formatter.number(_rawBlock.block.transactionCount),
-    // Optimism-specific; gas used by the deposit transaction
-    gasUsedDepositTx: formatter.bigInt(_rawBlock.gasUsedDepositTx ?? 0n),
-    ..._block,
+  // Format the raw block data
+  const rawBlock = response.block;
+  const rawIssuance = response.issuance ?? {};
+  
+  // First format the basic block parameters
+  const blockParams = {
+    hash: rawBlock.hash,
+    parentHash: rawBlock.parentHash,
+    number: formatter.number(rawBlock.number),
+    timestamp: formatter.number(rawBlock.timestamp),
+    nonce: rawBlock.nonce,
+    difficulty: formatter.bigInt(rawBlock.difficulty),
+    gasLimit: formatter.bigInt(rawBlock.gasLimit),
+    gasUsed: formatter.bigInt(rawBlock.gasUsed),
+    miner: formatter.address(rawBlock.miner),
+    extraData: rawBlock.extraData,
+    baseFeePerGas: null, // Add if present in your chain
+    transactions: rawBlock.transactions?.map((tx: any) => tx.txHash) ?? [],
   };
+
+  // Then create the extended block with additional fields
+  const extBlock: ExtendedBlock = {
+    ...blockParams,
+    blockReward: formatter.bigInt(rawIssuance.blockReward ?? 0),
+    unclesReward: formatter.bigInt(rawIssuance.uncleReward ?? 0),
+    feeReward: formatter.bigInt(response.totalFees ?? 0),
+    size: formatter.number(rawBlock.size),
+    sha3Uncles: rawBlock.sha3Uncles,
+    stateRoot: rawBlock.stateRoot,
+    totalDifficulty: formatter.bigInt(rawBlock.totalDifficulty),
+    transactionCount: formatter.number(rawBlock.transactionCount),
+    gasUsedDepositTx: formatter.bigInt(response.gasUsedDepositTx ?? 0n),
+  };
+
   return extBlock;
 };
 
@@ -96,77 +118,64 @@ const blockTransactionsFetcher: Fetcher<
   BlockTransactionsPage,
   [JsonRpcApiProvider, number, number, number]
 > = async ([provider, blockNumber, pageNumber, pageSize]) => {
-  const result = await provider.send("ots_getBlockTransactions", [
-    blockNumber,
-    pageNumber,
-    pageSize,
-  ]);
-  const _block = formatter.blockParamsWithTransactions(result.fullblock);
-  const _receipts = result.receipts;
+  try {
+    const txs = await provider.send("ots_getBlockTransaction", [
+      blockNumber,
+      pageNumber,
+      pageSize,
+    ]);
 
-  const rawTxs = _block.transactions
-    .map((t: TransactionResponseParams, i: number): ProcessedTransaction => {
-      const _rawReceipt = _receipts[i];
-      // Empty logs on purpose because of ethers formatter requires it
-      _rawReceipt.logs = [];
-      const _receipt: TransactionReceiptParams =
-        formatter.transactionReceiptParams(_rawReceipt);
+    if (!Array.isArray(txs)) {
+      return { total: 0, txs: [] };
+    }
 
-      if (t.hash === null) {
-        throw new Error("blockTransactionsFetcher: unknown tx hash");
+    // Transform the response into the expected format
+    const formattedTxs = txs.map(tx => {
+      const receipt = tx.wrappedEVMAccount?.readableReceipt;
+      if (!receipt) {
+        return null;
       }
 
-      let fee: bigint;
-      let effectiveGasPrice: bigint;
-      if (t.type === 2 || t.type === 3) {
-        const tip =
-          t.maxFeePerGas! - _block.baseFeePerGas! < t.maxPriorityFeePerGas!
-            ? t.maxFeePerGas! - _block.baseFeePerGas!
-            : t.maxPriorityFeePerGas!;
-        effectiveGasPrice = _block.baseFeePerGas! + tip;
-      } else {
-        effectiveGasPrice = t.gasPrice!;
-      }
+      // Helper to convert hex or decimal string to BigInt
+      const toBigInt = (value: string | null | undefined, defaultValue = "0") => {
+        if (!value || value === "0x") return BigInt(defaultValue);
+        return BigInt(value.startsWith("0x") ? value : `0x${value}`);
+      };
 
-      // Handle Optimism-specific values
-      let l1Fee: bigint | undefined;
-      if (isOptimisticChain(provider._network.chainId)) {
-        if (t.type === 126) {
-          fee = 0n;
-          effectiveGasPrice = 0n;
-        } else {
-          l1Fee = formatter.bigInt(_rawReceipt.l1Fee);
-          ({ fee, gasPrice: effectiveGasPrice } = getOpFeeData(
-            t.type,
-            effectiveGasPrice,
-            _receipt.gasUsed!,
-            l1Fee,
-          ));
-        }
-      } else {
-        fee = formatter.bigInt(_receipt.gasUsed) * effectiveGasPrice;
-      }
+      // Helper to convert hex to number
+      const toNumber = (value: string | null | undefined, defaultValue = 0) => {
+        if (!value || value === "0x") return defaultValue;
+        return parseInt(value.startsWith("0x") ? value : `0x${value}`, 16);
+      };
+
+      const gasUsed = toBigInt(receipt.gasUsed);
+      const gasPrice = toBigInt(receipt.gasPrice);
 
       return {
         blockNumber: blockNumber,
-        timestamp: _block.timestamp,
-        miner: _block.miner,
-        idx: i,
-        hash: t.hash,
-        from: t.from ?? undefined,
-        to: t.to ?? null,
-        createdContractAddress: _receipt.contractAddress ?? undefined,
-        value: t.value,
-        type: t.type,
-        fee,
-        gasPrice: effectiveGasPrice,
-        data: t.data,
-        status: formatter.number(_receipt.status),
+        timestamp: Math.floor(tx.timestamp / 1000), // Convert from ms to seconds
+        miner: undefined, // Will be set from block data
+        idx: toNumber(receipt.transactionIndex),
+        hash: tx.txHash,
+        from: tx.txFrom,
+        to: tx.txTo,
+        createdContractAddress: receipt.contractAddress || undefined,
+        value: toBigInt(receipt.value),
+        type: toNumber(receipt.type),
+        fee: gasUsed * gasPrice,
+        gasPrice: gasPrice,
+        data: receipt.data || "0x",
+        status: receipt.status ?? 0,
       };
-    })
-    .reverse();
+    }).filter(tx => tx !== null) as ProcessedTransaction[];
 
-  return { total: result.fullblock.transactionCount, txs: rawTxs };
+    return {
+      total: formattedTxs.length,
+      txs: formattedTxs
+    };
+  } catch (error) {
+    throw error;
+  }
 };
 
 export const useBlockTransactions = (
@@ -175,16 +184,14 @@ export const useBlockTransactions = (
   pageNumber: number,
   pageSize: number,
 ): { data: BlockTransactionsPage | undefined; isLoading: boolean } => {
-  const { data, error, isLoading } = useSWRImmutable(
+  const { data, isLoading } = useSWRImmutable(
     provider !== undefined && blockNumber !== undefined
       ? [provider, blockNumber, pageNumber, pageSize]
       : null,
     blockTransactionsFetcher,
     { keepPreviousData: true },
   );
-  if (error) {
-    return { data: undefined, isLoading: false };
-  }
+
   return { data, isLoading };
 };
 
@@ -239,6 +246,10 @@ export const useTxData = (
 
     const readTxData = async () => {
       try {
+        // Get raw transaction data to access custom fields
+        const rawTx = await provider.send("eth_getTransactionByHash", [txhash]);
+        console.log("Raw transaction response:", rawTx);
+
         const [_response, _receipt] = await Promise.all([
           provider.getTransaction(txhash),
           provider.getTransactionReceipt(txhash),
@@ -295,7 +306,7 @@ export const useTxData = (
           data: _response.data,
           maxFeePerBlobGas: _response.maxFeePerBlobGas ?? undefined,
           blobVersionedHashes: _response.blobVersionedHashes ?? undefined,
-          timestamp: (_response as any).timestamp ? Math.floor((_response as any).timestamp / 1000) : undefined,
+          timestamp: rawTx.timestamp ? Math.floor(Number(rawTx.timestamp)) / 1000 : undefined,
           confirmedData:
             _receipt === null
               ? undefined
