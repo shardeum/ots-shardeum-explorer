@@ -26,6 +26,7 @@ import Nonce from "../../components/Nonce";
 import PercentageBar from "../../components/PercentageBar";
 import PercentagePosition from "../../components/PercentagePosition";
 import RelativePosition from "../../components/RelativePosition";
+import ShardeumTransactionType from "../../components/ShardeumTransactionType";
 import StandardTextarea from "../../components/StandardTextarea";
 import Timestamp from "../../components/Timestamp";
 import TransactionType from "../../components/TransactionType";
@@ -292,7 +293,11 @@ const Details: FC<DetailsProps> = ({ txData }) => {
       {txData.to && (
         <InfoRow title="Transaction Action">
           <div className="flex space-x-1">
-            <MethodName data={txData.data} to={txData.to} />{" "}
+            {txData.type !== undefined ? (
+              <ShardeumTransactionType type={txData.type} />
+            ) : (
+              <MethodName data={txData.data} to={txData.to} />
+            )}
             {(userMethod || devMethod) && (
               <HelpButton
                 checked={showFunctionHelp}
@@ -402,13 +407,15 @@ const Details: FC<DetailsProps> = ({ txData }) => {
                   total={commify(formatUnits(txData.gasLimit, 0))}
                 />
               </div>
-              <PercentageBar
-                perc={
-                  Number(
-                    (txData.confirmedData.gasUsed * 10000n) / txData.gasLimit,
-                  ) / 100
-                }
-              />
+              {txData.gasLimit > 0n && (
+                <PercentageBar
+                  perc={
+                    Number(
+                      (txData.confirmedData.gasUsed * 10000n) / txData.gasLimit,
+                    ) / 100
+                  }
+                />
+              )}
             </div>
           </InfoRow>
           {txData.confirmedData && txData.confirmedData.l1GasUsed && (

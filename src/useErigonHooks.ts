@@ -247,17 +247,26 @@ export const useTxData = (
     const readTxData = async () => {
       try {
         // Make all requests in parallel immediately
-        const [tx, receipt, rawTx] = await Promise.all([
-          provider.getTransaction(txhash),
-          provider.getTransactionReceipt(txhash),
-          // Use raw RPC call to get transaction with timestamp
-          provider.send("eth_getTransactionByHash", [txhash])
+        const [rawTx] = await Promise.all([
+          provider.send("eth_getTransactionByHash", [txhash]),
         ]);
 
-        if (tx === null) {
+        if (!rawTx) {
           setTxData(null);
           return;
         }
+
+        // Helper to ensure addresses have 0x prefix
+        const normalizeAddress = (addr: string | null | undefined) => {
+          if (!addr) return undefined;
+          return addr.startsWith('0x') ? addr : `0x${addr}`;
+        };
+
+        // Get receipt separately after normalizing the from address
+        const receipt = await provider.send(
+          "eth_getTransactionReceipt",
+          [txhash],
+        );
 
         let fee: bigint;
         let gasPrice: bigint;
@@ -268,7 +277,7 @@ export const useTxData = (
         let l1FeeScalar: string | undefined;
         let l1Fee: bigint | undefined;
         if (isOptimisticChain(provider._network.chainId)) {
-          if (tx.type === 0x7e) {
+          if (rawTx.type === '0x7e') {
             fee = 0n;
             gasPrice = 0n;
           } else {
@@ -281,51 +290,51 @@ export const useTxData = (
             l1FeeScalar = _rawReceipt.l1FeeScalar;
             l1Fee = formatter.bigInt(_rawReceipt.l1Fee);
             ({ fee, gasPrice } = getOpFeeData(
-              tx.type,
-              tx.gasPrice!,
-              receipt ? receipt.gasUsed! : 0n,
+              parseInt(rawTx.type || '0x0'),
+              BigInt(rawTx.gasPrice || '0x0'),
+              receipt ? BigInt(receipt.gasUsed || '0x0') : 0n,
               l1Fee,
             ));
           }
         } else {
-          fee = tx.gasPrice! * receipt!.gasUsed!;
-          gasPrice = tx.gasPrice!;
+          fee = BigInt(rawTx.gasPrice || '0x0') * BigInt(receipt?.gasUsed || '0x0');
+          gasPrice = BigInt(rawTx.gasPrice || '0x0');
         }
 
+        // Format receipt data
+        const confirmedData = receipt ? {
+          status: receipt.status === '0x1',
+          blockNumber: parseInt(receipt.blockNumber),
+          transactionIndex: parseInt(receipt.transactionIndex),
+          confirmations: 1, // TODO: Calculate proper confirmations
+          createdContractAddress: normalizeAddress(receipt.contractAddress),
+          fee,
+          gasUsed: BigInt(receipt.gasUsed || '0x0'),
+          logs: receipt.logs || [],
+          blobGasPrice: receipt.blobGasPrice ? BigInt(receipt.blobGasPrice) : undefined,
+          blobGasUsed: receipt.blobGasUsed ? BigInt(receipt.blobGasUsed) : undefined,
+          l1GasUsed,
+          l1GasPrice,
+          l1FeeScalar,
+          l1Fee,
+        } : undefined;
+
         setTxData({
-          transactionHash: tx.hash,
-          from: tx.from,
-          to: tx.to ?? undefined,
-          value: tx.value,
-          type: tx.type ?? 0,
-          maxFeePerGas: tx.maxFeePerGas ?? undefined,
-          maxPriorityFeePerGas: tx.maxPriorityFeePerGas ?? undefined,
+          transactionHash: rawTx.hash,
+          from: normalizeAddress(rawTx.from)!,
+          to: normalizeAddress(rawTx.to),
+          value: BigInt(rawTx.value || '0x0'),
+          type: parseInt(rawTx.type || '0x0'),
+          maxFeePerGas: rawTx.maxFeePerGas ? BigInt(rawTx.maxFeePerGas) : undefined,
+          maxPriorityFeePerGas: rawTx.maxPriorityFeePerGas ? BigInt(rawTx.maxPriorityFeePerGas) : undefined,
           gasPrice,
-          gasLimit: tx.gasLimit,
-          nonce: BigInt(tx.nonce),
-          data: tx.data,
-          maxFeePerBlobGas: tx.maxFeePerBlobGas ?? undefined,
-          blobVersionedHashes: tx.blobVersionedHashes ?? undefined,
+          gasLimit: BigInt(rawTx.gas || '0x0'),
+          nonce: BigInt(rawTx.nonce || '0x0'),
+          data: rawTx.input || rawTx.data || '0x',
+          maxFeePerBlobGas: rawTx.maxFeePerBlobGas ? BigInt(rawTx.maxFeePerBlobGas) : undefined,
+          blobVersionedHashes: rawTx.blobVersionedHashes ?? undefined,
           timestamp: rawTx.timestamp ? Math.floor(Number(rawTx.timestamp)) / 1000 : undefined,
-          confirmedData:
-            receipt === null
-              ? undefined
-              : {
-                  status: receipt.status === 1,
-                  blockNumber: receipt.blockNumber,
-                  transactionIndex: receipt.index,
-                  confirmations: await receipt.confirmations(),
-                  createdContractAddress: receipt.contractAddress ?? undefined,
-                  fee,
-                  gasUsed: receipt.gasUsed,
-                  logs: Array.from(receipt.logs),
-                  blobGasPrice: receipt.blobGasPrice ?? undefined,
-                  blobGasUsed: receipt.blobGasUsed ?? undefined,
-                  l1GasUsed,
-                  l1GasPrice,
-                  l1FeeScalar,
-                  l1Fee,
-                },
+          confirmedData,
         });
       } catch (err) {
         console.error(err);
