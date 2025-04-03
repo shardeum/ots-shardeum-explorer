@@ -4,7 +4,7 @@ import { ChecksummedAddress } from "./types";
 export const fourBytesURL = (
   assetsURLPrefix: string,
   fourBytes: string,
-): string => `${assetsURLPrefix}/signatures/${fourBytes}`;
+): string => `${assetsURLPrefix}/signatures/${fourBytes}/`;
 
 export const topic0URL = (assetsURLPrefix: string, topic0: string): string =>
   `${assetsURLPrefix}/topic0/${topic0}`;

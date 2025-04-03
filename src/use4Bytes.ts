@@ -62,9 +62,30 @@ const fourBytesFetcher =
         return null;
       }
 
-      // Get only the first occurrence, for now ignore alternative param names
-      const sigs = await res.text();
-      const sig = sigs.split(";")[0];
+      // Get the response JSON
+      const response = await res.json();
+      
+      // Check if response is valid
+      if (!response.ok || !response.result?.function?.[key]) {
+        console.warn(`Invalid signature response for: ${fourBytes}`);
+        return null;
+      }
+
+      // Get the first signature
+      const signatures = response.result.function[key];
+      if (!signatures || signatures.length === 0) {
+        console.warn(`No signatures found for: ${fourBytes}`);
+        return null;
+      }
+
+      const sig = signatures[0].name;
+      
+      // Validate signature format (should contain at least one parenthesis)
+      if (!sig.includes("(")) {
+        console.warn(`Invalid signature format for: ${fourBytes}`);
+        return null;
+      }
+
       const cut = sig.indexOf("(");
       const method = sig.slice(0, cut);
 
@@ -77,6 +98,7 @@ const fourBytesFetcher =
     } catch (err) {
       // Network error or something wrong with URL config;
       // silence and don't try it again
+      console.warn(`Error fetching signature for ${fourBytes}:`, err);
       return null;
     }
   };
@@ -135,20 +157,12 @@ export const useMethodSelector = (
   const rawFourBytes = extract4Bytes(data);
   let fourBytesEntry = use4Bytes(rawFourBytes, to);
   const isSimpleTransfer = data === "0x";
-  
-  // If it's not a simple transfer and has no valid method signature,
-  // treat it as a Shardeum internal transaction
   const methodName = isSimpleTransfer
     ? "transfer"
     : fourBytesEntry?.name ?? "shardeum_internal_tx";
-    
   const methodTitle = isSimpleTransfer
     ? "SHM Transfer"
-    : methodName === "shardeum_internal_tx"
-    ? "Shardeum Internal Transaction"
-    : methodName === rawFourBytes
-    ? methodName
-    : `${methodName} [${rawFourBytes}]`;
+    : fourBytesEntry?.name ?? "shardeum_internal_tx";
 
   const fromVerifiedContract = fourBytesEntry
     ? fourBytesEntry.fromVerifiedContract
