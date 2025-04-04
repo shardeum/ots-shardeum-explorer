@@ -9,6 +9,7 @@ import { ChainInfoContext, useChainInfoFromMetadataFile } from "./useChainInfo";
 import { RuntimeContext, useRuntime } from "./useRuntime";
 import WarningHeader from "./WarningHeader";
 import AllTransactions from './pages/AllTransactions';
+import GlobalHeader from "./components/GlobalHeader";
 
 const Block = lazy(() => import("./execution/Block"));
 const BlockTransactions = lazy(() => import("./execution/BlockTransactions"));
@@ -33,7 +34,6 @@ const PageNotFound = lazy(() => import("./PageNotFound"));
 
 const App = () => {
   const runtime = useRuntime();
-  // TODO: fix internal hack
   let chainInfo = useChainInfoFromMetadataFile(runtime);
   if (runtime.config?.chainInfo !== undefined) {
     chainInfo = runtime.config.chainInfo;
@@ -41,18 +41,19 @@ const App = () => {
 
   return (
     <Suspense fallback={null}>
-      {runtime.connStatus !== ConnectionStatus.CONNECTED ||
-      chainInfo === undefined ? (
-        <ConnectionErrorPanel
-          connStatus={runtime.connStatus}
-          config={runtime.config}
-        />
-      ) : (
-        <RuntimeContext.Provider value={runtime}>
-          <ChainInfoContext.Provider value={chainInfo}>
-            <div className="flex flex-col min-h-screen">
-              <WarningHeader />
-              <Router>
+      <Router>
+        {runtime.connStatus !== ConnectionStatus.CONNECTED ||
+        chainInfo === undefined ? (
+          <ConnectionErrorPanel
+            connStatus={runtime.connStatus}
+            config={runtime.config}
+          />
+        ) : (
+          <RuntimeContext.Provider value={runtime}>
+            <ChainInfoContext.Provider value={chainInfo}>
+              <div className="flex flex-col min-h-screen bg-[aliceblue]">
+                <GlobalHeader />
+                {/* <WarningHeader /> */}
                 <div className="flex-grow flex flex-col">
                   <Routes>
                     <Route index element={<Home />} />
@@ -116,12 +117,12 @@ const App = () => {
                     </Route>
                   </Routes>
                 </div>
-              </Router>
-              <Footer />
-            </div>
-          </ChainInfoContext.Provider>
-        </RuntimeContext.Provider>
-      )}
+                {/* <Footer /> */}
+              </div>
+            </ChainInfoContext.Provider>
+          </RuntimeContext.Provider>
+        )}
+      </Router>
     </Suspense>
   );
 };
