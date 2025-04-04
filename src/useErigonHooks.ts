@@ -319,7 +319,7 @@ export const useTxData = (
           l1Fee,
         } : undefined;
 
-        setTxData({
+        const txDataToSet = {
           transactionHash: rawTx.hash,
           from: normalizeAddress(rawTx.from)!,
           to: normalizeAddress(rawTx.to),
@@ -335,7 +335,8 @@ export const useTxData = (
           blobVersionedHashes: rawTx.blobVersionedHashes ?? undefined,
           timestamp: rawTx.timestamp ? Math.floor(Number(rawTx.timestamp)) / 1000 : undefined,
           confirmedData,
-        });
+        };
+        setTxData(txDataToSet);
       } catch (err) {
         console.error(err);
         setTxData(null);

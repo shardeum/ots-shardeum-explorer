@@ -25,48 +25,14 @@ import PlainAddress from "./execution/components/PlainAddress";
 import useSWR from "swr";
 import { ProcessedTransaction } from "./types";
 import { rawToProcessed } from "./search/search";
+import LoadingState from "./components/LoadingState";
 const CameraScanner = lazy(() => import("./search/CameraScanner"));
 
-const LatestTransactionsTable: FC = () => {
-  const { provider } = useContext(RuntimeContext);
-  
-  const { data } = useSWR(
-    provider ? ["ots_getLatestTransactions", 20] : null,
-    async () => {
-      const result = await provider!.send("ots_getLatestTransactions", [20]);
-      return rawToProcessed(provider!, result);
-    },
-    {
-      refreshInterval: 5000,
-      dedupingInterval: 2000,
-      revalidateOnFocus: true,
-      revalidateOnReconnect: true
-    }
-  );
+interface LatestTransactionsTableProps {
+  transactions: ProcessedTransaction[];
+}
 
-  if (!data) {
-    return (
-      <div className="w-full overflow-x-auto">
-        <table className="min-w-full divide-y divide-gray-200">
-          <thead className="bg-gray-50">
-            <tr className="text-left text-xs sm:text-sm text-gray-500">
-              <th className="py-2 sm:py-3 px-2 sm:px-4 font-medium">Txn Hash</th>
-              <th className="py-2 sm:py-3 px-2 sm:px-4 font-medium">Age</th>
-              <th className="py-2 sm:py-3 px-2 sm:px-4 font-medium">From</th>
-              <th className="py-2 sm:py-3 px-2 sm:px-4 font-medium">To</th>
-              <th className="py-2 sm:py-3 px-2 sm:px-4 font-medium text-right">Value</th>
-            </tr>
-          </thead>
-          <tbody>
-            <tr>
-              <td colSpan={5} className="text-center py-4">Loading...</td>
-            </tr>
-          </tbody>
-        </table>
-      </div>
-    );
-  }
-
+const LatestTransactionsTable: FC<LatestTransactionsTableProps> = ({ transactions }) => {
   return (
     <div className="w-full overflow-x-auto">
       <table className="min-w-full divide-y divide-gray-200">
@@ -80,7 +46,7 @@ const LatestTransactionsTable: FC = () => {
           </tr>
         </thead>
         <tbody className="divide-y divide-gray-200">
-          {[...data.txs]
+          {transactions
             .sort((a, b) => Number(b.timestamp) - Number(a.timestamp))
             .map((tx: ProcessedTransaction) => (
               <tr key={tx.hash} className="hover:bg-gray-50 transition-colors">
@@ -144,6 +110,22 @@ const Home: FC = () => {
   const [isScanning, setScanning] = useState<boolean>(false);
   const [isLoaded, setIsLoaded] = useState(false);
 
+  const { data, isLoading, error } = useSWR(
+    provider ? ["ots_getLatestTransactions", 20] : null,
+    async () => {
+      const result = await provider!.send("ots_getLatestTransactions", [20]);
+      return rawToProcessed(provider!, result);
+    },
+    {
+      refreshInterval: 5000,
+      dedupingInterval: 2000,
+      revalidateOnFocus: true,
+      revalidateOnReconnect: true,
+      suspense: false,
+      revalidateOnMount: true
+    }
+  );
+
   useEffect(() => {
     setIsLoaded(true);
   }, []);
@@ -154,56 +136,62 @@ const Home: FC = () => {
     <div className="flex-grow flex flex-col bg-[#F8F9FB]">
       
       <main className="flex-1 container mx-auto px-4 pt-2 pb-10 md:px-6 lg:px-8">
-        <div className={`transition-opacity duration-500 ${isLoaded ? 'opacity-100' : 'opacity-0'}`}>
-          {/* Search Section */}
-          <div className="w-full max-w-2xl mx-auto mt-8 sm:mt-12 mb-10 sm:mb-16">
-            <form
-              className="relative"
-              onSubmit={handleSubmit}
-              autoComplete="off"
-              spellCheck={false}
-            >
-              <div className="flex flex-col sm:flex-row items-center gap-2">
-                <div className="relative flex-1 rounded-xl overflow-hidden shadow transition-all duration-300 ease-in-out w-full">
-                  <input
-                    className="w-full py-3 px-4 sm:px-6 pr-10 sm:pr-12 border-none outline-none text-foreground/80 bg-white text-sm sm:text-base placeholder:text-muted-foreground/60 transition-all h-10 sm:h-12"
-                    type="text"
-                    placeholder="Search by address / txn hash / block"
-                    onChange={handleChange}
-                    ref={searchRef}
-                  />
-                  <button 
-                    type="submit"
-                    className="absolute right-0 top-0 h-full px-3 sm:px-4 flex items-center justify-center text-gray-400 hover:text-blue-500 transition-colors"
+        <LoadingState 
+          isLoading={isLoading || !data} 
+          isEmpty={!data?.txs?.length}
+          emptyMessage="No transactions found"
+        >
+          <div className={`transition-opacity duration-500 ${isLoaded ? 'opacity-100' : 'opacity-0'}`}>
+            {/* Search Section */}
+            <div className="w-full max-w-2xl mx-auto mt-8 sm:mt-12 mb-10 sm:mb-16">
+              <form
+                className="relative"
+                onSubmit={handleSubmit}
+                autoComplete="off"
+                spellCheck={false}
+              >
+                <div className="flex flex-col sm:flex-row items-center gap-2">
+                  <div className="relative flex-1 rounded-xl overflow-hidden shadow transition-all duration-300 ease-in-out w-full">
+                    <input
+                      className="w-full py-3 px-4 sm:px-6 pr-10 sm:pr-12 border-none outline-none text-foreground/80 bg-white text-sm sm:text-base placeholder:text-muted-foreground/60 transition-all h-10 sm:h-12"
+                      type="text"
+                      placeholder="Search by address / txn hash / block"
+                      onChange={handleChange}
+                      ref={searchRef}
+                    />
+                    <button 
+                      type="submit"
+                      className="absolute right-0 top-0 h-full px-3 sm:px-4 flex items-center justify-center text-gray-400 hover:text-blue-500 transition-colors"
+                    >
+                      <FontAwesomeIcon icon={faSearch} size="sm" />
+                    </button>
+                  </div>
+                  
+                  <button
+                    type="button"
+                    onClick={() => setScanning(true)}
+                    className="h-10 sm:h-12 px-4 flex items-center justify-center bg-white hover:bg-blue-50 border border-gray-200 rounded-xl shadow-sm transition-all duration-300 hover:shadow group w-full sm:w-auto mt-2 sm:mt-0"
                   >
-                    <FontAwesomeIcon icon={faSearch} size="sm" />
+                    <FontAwesomeIcon icon={faQrcode} className="mr-2 text-gray-400 group-hover:text-blue-500 transition-colors" />
+                    <span className="text-sm font-medium group-hover:text-blue-500 transition-colors">Scan</span>
                   </button>
                 </div>
-                
-                <button
-                  type="button"
-                  onClick={() => setScanning(true)}
-                  className="h-10 sm:h-12 px-4 flex items-center justify-center bg-white hover:bg-blue-50 border border-gray-200 rounded-xl shadow-sm transition-all duration-300 hover:shadow group w-full sm:w-auto mt-2 sm:mt-0"
-                >
-                  <FontAwesomeIcon icon={faQrcode} className="mr-2 text-gray-400 group-hover:text-blue-500 transition-colors" />
-                  <span className="text-sm font-medium group-hover:text-blue-500 transition-colors">Scan</span>
-                </button>
-              </div>
-            </form>
-          </div>
+              </form>
+            </div>
 
-          {/* Transactions Table */}
-          <div className="max-w-6xl mx-auto mb-8">
-            <div className="w-full overflow-hidden rounded-xl border border-gray-200 shadow-sm">
-              <div className="py-3 sm:py-4 px-4 sm:px-6 bg-white border-b border-gray-200">
-                <h2 className="text-base sm:text-lg font-semibold">Latest Transactions</h2>
-              </div>
-              <div className="bg-white overflow-x-auto">
-                <LatestTransactionsTable />
+            {/* Transactions Table */}
+            <div className="max-w-6xl mx-auto mb-8">
+              <div className="w-full overflow-hidden rounded-xl border border-gray-200 shadow-sm">
+                <div className="py-3 sm:py-4 px-4 sm:px-6 bg-white border-b border-gray-200">
+                  <h2 className="text-base sm:text-lg font-semibold">Latest Transactions</h2>
+                </div>
+                <div className="bg-white">
+                  <LatestTransactionsTable transactions={data?.txs || []} />
+                </div>
               </div>
             </div>
           </div>
-        </div>
+        </LoadingState>
       </main>
 
       {isScanning && (
