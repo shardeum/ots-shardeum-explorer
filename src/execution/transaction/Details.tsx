@@ -253,7 +253,7 @@ const Details: FC<DetailsProps> = ({ txData }) => {
             </div>
           </InfoRow>
           <InfoRow title="Timestamp">
-            <Timestamp value={block?.timestamp} isLoading={!block} />
+            <Timestamp value={txData.timestamp} />
           </InfoRow>
         </>
       )}

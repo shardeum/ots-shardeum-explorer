@@ -10,6 +10,7 @@ import { useLatestBlockNumber } from "../useLatestBlock";
 import { RuntimeContext } from "../useRuntime";
 import { useBlockPageTitle } from "../useTitle";
 import BlockDetails from "./BlockDetails";
+import LoadingState from "../components/LoadingState";
 
 const Block: React.FC = () => {
   const { provider } = useContext(RuntimeContext);
@@ -47,7 +48,14 @@ const Block: React.FC = () => {
           />
         </div>
       </StandardSubtitle>
-      <BlockDetails blockNumberOrHash={blockNumberOrHash} />
+      <LoadingState 
+        isLoading={isLoading} 
+        isEmpty={!isLoading && !block}
+        emptyMessage="Fetching block..."
+        fullScreen
+      >
+        <BlockDetails blockNumberOrHash={blockNumberOrHash} />
+      </LoadingState>
     </StandardFrame>
   );
 };
