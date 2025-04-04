@@ -21,9 +21,7 @@ const Main: React.FC = () => {
     <AppConfigContext.Provider value={appConfig}>
       <Header />
       <ErrorBoundary FallbackComponent={ErrorFallback}>
-        <div className="bg-[aliceblue]">
-          <Outlet />
-        </div>
+        <Outlet />
       </ErrorBoundary>
     </AppConfigContext.Provider>
   );
