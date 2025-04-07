@@ -6,31 +6,40 @@ interface PlainAddressProps {
   linkable?: boolean;
   dontOverrideColors?: boolean;
   className?: string;
+  truncateLength?: number;
 }
 
 const PlainAddress: FC<PlainAddressProps> = ({
   address,
   linkable,
   dontOverrideColors,
-  className
+  className,
+  truncateLength
 }) => {
+  if (!address) return null;
+
+  const displayAddress = truncateLength ? 
+    `${address.slice(0, truncateLength)}...` : 
+    address;
+
+  const baseClasses = `${dontOverrideColors ? "" : "text-link-blue hover:text-link-blue-hover"} font-mono ${className || ''}`;
+
   if (linkable) {
     return (
       <NavLink
-        className={`${
-          dontOverrideColors ? "" : "text-link-blue hover:text-link-blue-hover"
-        } truncate font-address ${className || ''}`}
+        className={baseClasses}
         to={`/address/${address}`}
         title={address}
+        data-test="address-link"
       >
-        {address}
+        {displayAddress}
       </NavLink>
     );
   }
 
   return (
-    <span className="truncate font-address text-gray-400" title={address}>
-      {address}
+    <span className={`font-mono ${dontOverrideColors ? "text-gray-400" : ""} ${className || ''}`} title={address}>
+      {displayAddress}
     </span>
   );
 };

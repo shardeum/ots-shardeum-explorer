@@ -42,14 +42,11 @@ const TransactionList: FC<TransactionListProps> = ({ mode, className = '' }) => 
       try {
         let response;
         if (mode === 'latest') {
-          // For latest mode, get the most recent transactions
           response = await provider!.send('ots_getLatestTransactions', [limit]);
         } else {
-          // For full mode, get transactions in descending order by block number
           response = await provider!.send('ots_getTransactions', [null, currentPage, PAGE_SIZE]);
         }
         const processed = await rawToProcessed(provider!, response);
-        console.log('Processed transactions:', processed); // Debug log
         return processed;
       } catch (err) {
         console.error('Error fetching transactions:', err);
@@ -113,16 +110,30 @@ const TransactionList: FC<TransactionListProps> = ({ mode, className = '' }) => 
               {data?.txs?.map((tx: ProcessedTransaction) => (
                 <tr key={tx.hash} className="hover:bg-gray-50">
                   <td className="px-6 py-4 whitespace-nowrap text-sm">
-                    <TransactionLink txHash={tx.hash} />
+                    <TransactionLink 
+                      txHash={tx.hash}
+                      className="text-blue-600 hover:text-blue-800"
+                      truncateLength={26}
+                    />
                   </td>
                   <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
                     <TimestampAge timestamp={Number(tx.timestamp)} />
                   </td>
                   <td className="px-6 py-4 whitespace-nowrap text-sm">
-                    <PlainAddress address={tx.from || ''} linkable={true} dontOverrideColors={false} />
+                    <PlainAddress
+                      address={tx.from || ''}
+                      truncateLength={20}
+                      linkable={true}
+                      className="text-gray-900 hover:text-blue-600"
+                    />
                   </td>
                   <td className="px-6 py-4 whitespace-nowrap text-sm">
-                    <PlainAddress address={tx.to || ''} linkable={true} dontOverrideColors={false} />
+                    <PlainAddress
+                      address={tx.to || ''}
+                      truncateLength={20}
+                      linkable={true}
+                      className="text-gray-900 hover:text-blue-600"
+                    />
                   </td>
                   <td className="px-6 py-4 whitespace-nowrap text-sm text-right">
                     <NativeTokenAmount value={tx.value} />

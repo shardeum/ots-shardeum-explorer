@@ -1,6 +1,8 @@
 import express from 'express';
 import { createProxyMiddleware } from 'http-proxy-middleware';
 import cors from 'cors';
+import { IncomingMessage, ServerResponse } from 'http';
+import { Socket } from 'net';
 
 const app = express();
 
@@ -23,12 +25,17 @@ const proxyMiddleware = createProxyMiddleware({
   pathRewrite: {
     '^/api': '/'
   },
-  onProxyReq: (proxyReq, req, res) => {
-    console.log(`Proxying ${req.method} request to: ${proxyReq.path}`);
-  },
-  onError: (err, req, res) => {
-    console.error('Proxy Error:', err);
-    res.status(500).json({ error: 'Proxy Error', message: err.message });
+  on: {
+    proxyReq: (proxyReq, req, res) => {
+      console.log(`Proxying ${req.method} request to: ${proxyReq.path}`);
+    },
+    error: (err: Error, req: IncomingMessage, res: ServerResponse | Socket) => {
+      console.error('Proxy Error:', err);
+      if (res instanceof ServerResponse) {
+        res.writeHead(500, { 'Content-Type': 'application/json' });
+        res.end(JSON.stringify({ error: 'Proxy Error', message: err.message }));
+      }
+    }
   }
 });
 
@@ -40,4 +47,4 @@ const PORT = process.env.PROXY_PORT || 8545;
 app.listen(PORT, () => {
   console.log(`Proxy server running on port ${PORT}`);
   console.log(`Proxying requests to: ${getTargetUrl()}`);
-}); 
+});
