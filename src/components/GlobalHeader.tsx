@@ -22,18 +22,6 @@ const GlobalHeader: FC = () => (
         {/* Navigation Items */}
         <nav className="hidden sm:flex items-center space-x-8">
           <NavLink 
-            to="/txs" 
-            className={({ isActive }) => 
-              `text-sm font-medium transition-colors ${
-                isActive 
-                  ? "text-blue-600 border-b-2 border-blue-600" 
-                  : "text-gray-500 hover:text-gray-900"
-              }`
-            }
-          >
-            Transactions
-          </NavLink>
-          <NavLink 
             to="https://explorer-testnet.shardeum.org/" 
             className={({ isActive }) => 
               `text-sm font-medium transition-colors ${
@@ -55,7 +43,7 @@ const GlobalHeader: FC = () => (
               }`
             }
           >
-            Join Shardeum
+            Careers
           </NavLink>
         </nav>
       </div>
@@ -63,4 +51,4 @@ const GlobalHeader: FC = () => (
   </header>
 );
 
-export default GlobalHeader; 
+export default GlobalHeader;

@@ -7,8 +7,8 @@ import Main from "./Main";
 import { ConnectionStatus } from "./types";
 import { ChainInfoContext, useChainInfoFromMetadataFile } from "./useChainInfo";
 import { RuntimeContext, useRuntime } from "./useRuntime";
-import AllTransactions from './pages/AllTransactions';
 import GlobalHeader from "./components/GlobalHeader";
+
 const Block = lazy(() => import("./execution/Block"));
 const BlockTransactions = lazy(() => import("./execution/BlockTransactions"));
 const BlockTransactionByIndex = lazy(
@@ -32,7 +32,6 @@ const PageNotFound = lazy(() => import("./PageNotFound"));
 
 const App = () => {
   const runtime = useRuntime();
-  // TODO: fix internal hack
   let chainInfo = useChainInfoFromMetadataFile(runtime);
   if (runtime.config?.chainInfo !== undefined) {
     chainInfo = runtime.config.chainInfo;
@@ -110,7 +109,6 @@ const App = () => {
                         element={<Validator />}
                       />
                       <Route path="faucets/*" element={<Faucets />} />
-                      <Route path="txs" element={<AllTransactions />} />
                       <Route path="*" element={<PageNotFound />} />
                     </Route>
                   </Routes>

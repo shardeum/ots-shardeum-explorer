@@ -1,5 +1,5 @@
 import { FC, PropsWithChildren } from "react";
-import { NavLink } from "react-router-dom";
+import { useSearchParams } from "react-router-dom";
 
 type TransactionPageButtonProps = {
   direction: "first" | "last" | "prev" | "next";
@@ -15,6 +15,8 @@ const TransactionPageButton: FC<PropsWithChildren<TransactionPageButtonProps>> =
   disabled,
   children,
 }) => {
+  const [, setSearchParams] = useSearchParams();
+
   if (disabled) {
     return (
       <span className="select-none rounded-lg bg-link-blue/10 px-3 py-2 text-xs text-gray-400">
@@ -33,15 +35,19 @@ const TransactionPageButton: FC<PropsWithChildren<TransactionPageButtonProps>> =
     }
   };
 
+  const handleClick = () => {
+    const newPage = getPageNumber();
+    setSearchParams({ page: newPage.toString() });
+  };
+
   return (
-    <NavLink
+    <button
+      onClick={handleClick}
       className="select-none rounded-lg bg-link-blue/10 px-3 py-2 text-xs text-link-blue transition-colors hover:bg-link-blue/100 hover:text-white disabled:cursor-default disabled:bg-link-blue disabled:text-gray-400"
-      to={`/txs?page=${getPageNumber()}`}
       data-test={`nav-${direction}`}
-      relative="route"
     >
       {children}
-    </NavLink>
+    </button>
   );
 };
 
