@@ -133,7 +133,9 @@ const Home: FC = () => {
   usePageTitle("Home");
 
   return (
-    <div className="flex-grow flex flex-col bg-[#F8F9FB]">
+    <div className="flex-grow flex flex-col" style={{
+      background: 'linear-gradient(to bottom, rgba(255, 248, 204, 1) 0%, rgba(236, 253, 236, 1) 50%, rgba(220, 255, 236, 1) 100%)'
+    }}>
       
       <main className="flex-1 container mx-auto px-4 pt-2 pb-10 md:px-6 lg:px-8">
         <LoadingState 
