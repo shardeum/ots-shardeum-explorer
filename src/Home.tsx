@@ -22,18 +22,10 @@ const Home: FC = () => {
   const [searchRef, handleChange, handleSubmit] = useGenericSearch();
   const [isScanning, setScanning] = useState<boolean>(false);
   const [isLoaded, setIsLoaded] = useState(false);
-  const [viewMode, setViewMode] = useState<'latest' | 'full'>('latest');
+
   const [searchParams, setSearchParams] = useSearchParams();
 
-  // Reset to page 1 when switching modes
-  const handleViewModeChange = (mode: 'latest' | 'full') => {
-    setViewMode(mode);
-    if (mode === 'latest') {
-      setSearchParams({});
-    } else {
-      setSearchParams({ page: '1' });
-    }
-  };
+
 
   useEffect(() => {
     setIsLoaded(true);
@@ -85,31 +77,8 @@ const Home: FC = () => {
 
           {/* Transactions List */}
           <div className="max-w-6xl mx-auto mb-8">
-            <div className="flex justify-between items-center mb-4">
-              <div className="flex space-x-2">
-                <button
-                  onClick={() => handleViewModeChange('latest')}
-                  className={`px-4 py-2 rounded-lg text-sm font-medium transition-colors ${
-                    viewMode === 'latest'
-                      ? 'bg-blue-600 text-white'
-                      : 'bg-white text-gray-600 hover:bg-gray-50'
-                  }`}
-                >
-                  Latest
-                </button>
-                <button
-                  onClick={() => handleViewModeChange('full')}
-                  className={`px-4 py-2 rounded-lg text-sm font-medium transition-colors ${
-                    viewMode === 'full'
-                      ? 'bg-blue-600 text-white'
-                      : 'bg-white text-gray-600 hover:bg-gray-50'
-                  }`}
-                >
-                  All Transactions
-                </button>
-              </div>
-            </div>
-            <TransactionList mode={viewMode} />
+
+            <TransactionList mode="full" />
           </div>
         </div>
       </main>

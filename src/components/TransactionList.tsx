@@ -13,7 +13,7 @@ import LoadingState from './LoadingState';
 import { PAGE_SIZE } from '../params';
 
 interface TransactionListProps {
-  mode: 'latest' | 'full';
+  mode: 'full';
   className?: string;
 }
 
@@ -27,25 +27,15 @@ const TransactionList: FC<TransactionListProps> = ({ mode, className = '' }) => 
   const [searchParams] = useSearchParams();
   const currentPage = Number(searchParams.get('page')) || 1;
 
-  // Only auto-refresh if we're in latest mode and on the first page
-  const shouldAutoRefresh = mode === 'latest' && currentPage === 1;
-
-  // Use different API endpoints based on mode
   const { data, isLoading, error } = useSWR<TransactionResponse>(
     provider ? [
-      mode === 'latest' ? 'ots_getLatestTransactions' : `ots_getTransactions_${currentPage}`,
-      mode === 'latest' ? 20 : null,
-      mode === 'latest' ? undefined : currentPage,
-      mode === 'latest' ? undefined : PAGE_SIZE
+      `ots_getTransactions_${currentPage}`,
+      currentPage,
+      PAGE_SIZE
     ] : null,
-    async ([endpoint, limit, page, pageSize]) => {
+    async ([endpoint, page, pageSize]) => {
       try {
-        let response;
-        if (mode === 'latest') {
-          response = await provider!.send('ots_getLatestTransactions', [limit]);
-        } else {
-          response = await provider!.send('ots_getTransactions', [null, currentPage, PAGE_SIZE]);
-        }
+        const response = await provider!.send('ots_getTransactions', [null, currentPage, PAGE_SIZE]);
         const processed = await rawToProcessed(provider!, response);
         return processed;
       } catch (err) {
@@ -54,7 +44,6 @@ const TransactionList: FC<TransactionListProps> = ({ mode, className = '' }) => 
       }
     },
     {
-      refreshInterval: shouldAutoRefresh ? 5000 : 0,
       dedupingInterval: 2000,
       revalidateOnFocus: true,
       revalidateOnReconnect: true,
@@ -81,7 +70,7 @@ const TransactionList: FC<TransactionListProps> = ({ mode, className = '' }) => 
         <div className="py-3 sm:py-4 px-4 sm:px-6 bg-white border-b border-gray-200">
           <div className="flex justify-between items-center">
             <h2 className="text-base sm:text-lg font-semibold">
-              {mode === 'latest' ? 'Latest Transactions' : 'All Transactions'}
+              All Transactions
             </h2>
           </div>
         </div>
@@ -144,7 +133,7 @@ const TransactionList: FC<TransactionListProps> = ({ mode, className = '' }) => 
           </table>
         </div>
       </div>
-      {mode === 'full' && data && typeof data.totalPages === 'number' && data.totalPages > 0 && (
+      {data && typeof data.totalPages === 'number' && data.totalPages > 0 && (
         <div className="mt-8">
           <TransactionPageControl
             currentPage={currentPage}
