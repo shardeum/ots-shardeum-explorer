@@ -5,7 +5,8 @@ import {
 import { FontAwesomeIcon } from "@fortawesome/react-fontawesome";
 import { Tab } from "@headlessui/react";
 import { formatUnits } from "ethers";
-import { FC, memo, useContext, useState } from "react";
+import { FC, memo, useContext, useEffect, useState } from "react";
+import useSWR from "swr";
 import BlockConfirmations from "../../components/BlockConfirmations";
 import BlockLink from "../../components/BlockLink";
 import ContentFrame from "../../components/ContentFrame";
@@ -49,7 +50,7 @@ import {
   useTokenTransfers,
   useTransactionError,
 } from "../../useErigonHooks";
-import { RuntimeContext } from "../../useRuntime";
+import { RuntimeContext, useRuntime } from "../../useRuntime";
 import { commify } from "../../utils/utils";
 import TransactionAddressWithCopy from "../components/TransactionAddressWithCopy";
 import { calculateFee } from "../feeCalc";
@@ -65,7 +66,8 @@ type DetailsProps = {
 };
 
 const Details: FC<DetailsProps> = ({ txData }) => {
-  const { provider } = useContext(RuntimeContext);
+  const runtime = useRuntime();
+  const { provider } = runtime;
   const block = useBlockDataFromTransaction(provider, txData);
 
   const hasEIP1559 =
@@ -121,6 +123,17 @@ const Details: FC<DetailsProps> = ({ txData }) => {
   const isOptimistic = isOptimisticChain(provider?._network.chainId);
 
   const { totalFees } = calculateFee(txData, block);
+
+  // Fetch transaction receipt status
+  const receiptFetcher = async ([, txHash]: [string, string]) => {
+    if (!provider || !txHash) return null;
+    const receipt = await provider.getTransactionReceipt(txHash);
+    return receipt?.status ?? null; // Return status (0 or 1) or null if no receipt
+  };
+  const { data: txStatus } = useSWR(
+    txData?.transactionHash ? ["txReceiptStatus", txData.transactionHash] : null,
+    receiptFetcher,
+  );
 
   return (
     <ContentFrame tabs>
@@ -293,11 +306,11 @@ const Details: FC<DetailsProps> = ({ txData }) => {
       {txData.to && (
         <InfoRow title="Transaction Action">
           <div className="flex space-x-1">
-            {txData.type !== undefined ? (
-              <ShardeumTransactionType type={txData.type} />
-            ) : (
-              <MethodName data={txData.data} to={txData.to} />
-            )}
+            <MethodName
+              status={txStatus ?? 1} // Use fetched status, default to 1 (success)
+              data={txData.data}
+              to={txData.to}
+            />
             {(userMethod || devMethod) && (
               <HelpButton
                 checked={showFunctionHelp}

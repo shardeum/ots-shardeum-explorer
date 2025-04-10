@@ -10,6 +10,10 @@ import useSWRImmutable from "swr/immutable";
 import { useSourcifyMetadata } from "./sourcify/useSourcify";
 import { fourBytesURL } from "./url";
 import { RuntimeContext } from "./useRuntime";
+import {
+  decodeShardeumInputData,
+  SHARDEUM_INTERNAL_TX_TYPE_LEGEND,
+} from "./utils/shardeumUtils";
 
 export type FourBytesEntry = {
   name: string;
@@ -155,14 +159,33 @@ export const useMethodSelector = (
   to?: string,
 ): [boolean, string, string, boolean] => {
   const rawFourBytes = extract4Bytes(data);
-  let fourBytesEntry = use4Bytes(rawFourBytes, to);
+  const fourBytesEntry = use4Bytes(rawFourBytes, to);
   const isSimpleTransfer = data === "0x";
-  const methodName = isSimpleTransfer
-    ? "transfer"
-    : fourBytesEntry?.name ?? "shardeum_internal_tx";
-  const methodTitle = isSimpleTransfer
-    ? "SHM Transfer"
-    : fourBytesEntry?.name ?? "shardeum_internal_tx";
+
+  let methodName = "";
+  let methodTitle = "";
+
+  if (isSimpleTransfer) {
+    methodName = "transfer";
+    methodTitle = "SHM Transfer";
+  } else {
+    // Attempt to decode as Shardeum internal transaction first if 4bytes lookup is inconclusive
+    const decodedInternalData = decodeShardeumInputData(data);
+
+    if (decodedInternalData) {
+      // Use decoded Shardeum internal type
+      methodName = decodedInternalData.typeName;
+      methodTitle = `Shardeum Internal: ${decodedInternalData.typeName}`;
+    } else if (fourBytesEntry?.name) {
+      // Use result from 4bytes/Sourcify lookup
+      methodName = fourBytesEntry.name;
+      methodTitle = fourBytesEntry.name;
+    } else {
+      // Fallback if nothing else worked
+      methodName = "Unknown Interaction";
+      methodTitle = "Unknown Interaction";
+    }
+  }
 
   const fromVerifiedContract = fourBytesEntry
     ? fourBytesEntry.fromVerifiedContract
