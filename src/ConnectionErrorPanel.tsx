@@ -20,26 +20,14 @@ const ConnectionErrorPanel: React.FC<ConnectionErrorPanelProps> = ({
   return (
     <div className="flex h-screen flex-col bg-gray-300 font-sans">
       <div className="min-w-lg m-auto h-60 max-w-lg text-lg text-gray-700">
-        <Step type="wait" msg="Trying to connect to Erigon node..." />
+        <Step type="wait" msg="Connecting to Shardeum..." />
         <div className="flex space-x-2">
-          <span className="ml-7 text-base">{config?.erigonURL}</span>
+          <span className="ml-7 text-base">Shardeum RPC URL</span>
         </div>
         {connStatus === ConnectionStatus.NOT_ETH_NODE && (
           <Step type="error" msg="It does not seem to be an ETH node">
             <p>Make sure your browser can access the URL above.</p>
-            <p>
-              If you want to customize the Erigon rpcdaemon endpoint, please
-              follow these{" "}
-              <a
-                href="https://github.com/wmitsuda/otterscan#run-otterscan-docker-image-from-docker-hub"
-                target="_blank"
-                rel="noreferrer noopener"
-                className="font-bold text-blue-800 hover:underline"
-              >
-                instructions
-              </a>
-              .
-            </p>
+            
           </Step>
         )}
         {connStatus === ConnectionStatus.NOT_ERIGON && (

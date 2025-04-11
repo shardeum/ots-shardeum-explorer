@@ -51,7 +51,7 @@ const Block: React.FC = () => {
       <LoadingState 
         isLoading={isLoading} 
         isEmpty={!isLoading && !block}
-        emptyMessage="Fetching block..."
+        emptyMessage="Block not found"
         fullScreen
       >
         <BlockDetails blockNumberOrHash={blockNumberOrHash} />
